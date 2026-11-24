@@ -37,16 +37,21 @@ Double-click `bloompix_run.command` in Finder, or run from terminal:
 ```
 On first run, the launcher creates `./venv`, installs `requirements.txt`, and opens BloomPix in your default browser.
 
-### Windows Portable
-Double-click `BloomPix_Start.bat`. It searches for Python in strict priority order:
-1. `python_embed\python.exe` (Windows Portable embedded runtime)
+### Windows Portable & Git Clone Launch
+Double-click `BloomPix_Start.bat`. On first launch it automatically creates a Desktop shortcut (`BloomPix.lnk`) with the BloomPix icon (`assets\bloompix.ico`), safely checks for repository updates (`git pull --ff-only`) when running inside a Git clone, and locates Python in strict priority order:
+1. `python_embed\python.exe` (standalone Windows Portable embedded runtime — zero setup)
 2. `venv\Scripts\python.exe`
 3. `.venv\Scripts\python.exe`
-4. System `python` on `PATH`
+4. System `python` on `PATH` (automatically creates `venv\` and installs `requirements.txt` on first run)
 
-To create a Desktop shortcut with the BloomPix icon (`assets\bloompix.ico`), run:
+To manually recreate the Desktop shortcut at any time, run:
 ```bat
 wscript scripts\create_windows_shortcut.vbs
+```
+
+To build a self-contained offline Windows x64 Portable archive (`dist/BloomPix_Windows_Portable.zip` with embedded Python 3.11 and all Windows wheels), run on macOS or Windows:
+```bash
+./venv/bin/python scripts/build_windows_portable.py
 ```
 
 ---

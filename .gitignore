@@ -31,6 +31,8 @@ outputs/
 exports/
 cache/
 tmp/
+dist/
+build/
 *.log
 metadata_override.csv
 data/metadata_override.csv
