@@ -1,0 +1,36 @@
+# Agent & IDE directories
+.agents/
+.antigravity/
+.vscode/
+
+# Python environments & caches
+.venv/
+venv/
+python_embed/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Local source logo & raw SEM images
+logo.jpeg
+/logo.png
+/logo.ico
+data/*
+!data/.gitkeep
+*.tif
+*.tiff
+*.bmp
+
+# Local outputs, caches & overrides
+outputs/
+exports/
+cache/
+tmp/
+*.log
+metadata_override.csv
+data/metadata_override.csv
