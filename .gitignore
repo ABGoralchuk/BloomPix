@@ -2,6 +2,7 @@
 .agents/
 .antigravity/
 .vscode/
+AGENTS.md
 
 # Python environments & caches
 .venv/

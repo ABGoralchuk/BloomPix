@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -11,6 +12,11 @@ import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Optional
+
+try:
+    import certifi
+except ImportError:  # pragma: no cover - optional outside venv
+    certifi = None
 
 PYTHON_EMBED_URL = (
     "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"
@@ -45,6 +51,19 @@ IGNORE_PATTERNS = shutil.ignore_patterns(
     ".DS_Store",
     "Thumbs.db",
 )
+
+
+def _download_file(url: str, dest: Path) -> None:
+    """Download ``url`` to ``dest`` using ``certifi`` CA bundle when available."""
+    ctx = (
+        ssl.create_default_context(cafile=certifi.where())
+        if certifi is not None
+        else ssl.create_default_context()
+    )
+    req = urllib.request.Request(url, headers={"User-Agent": "BloomPix-Packager/1.0"})
+    with urllib.request.urlopen(req, context=ctx, timeout=60) as resp:
+        with dest.open("wb") as out_fh:
+            shutil.copyfileobj(resp, out_fh)
 
 
 def _enable_embed_site_packages(embed_dir: Path) -> None:
@@ -105,7 +124,7 @@ def _install_windows_dependencies(
     if sys.platform == "win32":
         with tempfile.TemporaryDirectory() as tmp_dl:
             get_pip = Path(tmp_dl) / "get-pip.py"
-            urllib.request.urlretrieve(GET_PIP_URL, get_pip)
+            _download_file(GET_PIP_URL, get_pip)
             py_exe = embed_dir / "python.exe"
             subprocess.check_call([str(py_exe), str(get_pip), "--no-warn-script-location"])
             subprocess.check_call(
@@ -164,7 +183,7 @@ def build_windows_portable(
 
         embed_zip = tmp_path / "python_embed.zip"
         print(f"Downloading Python 3.11 x64 embeddable runtime from {python_url}...")
-        urllib.request.urlretrieve(python_url, embed_zip)
+        _download_file(python_url, embed_zip)
 
         embed_dir = stage_dir / "python_embed"
         embed_dir.mkdir(parents=True, exist_ok=True)
