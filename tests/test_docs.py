@@ -10,11 +10,15 @@ from xml.etree import ElementTree as ET
 from docx import Document
 
 from core.version import APP_VERSION
+from scripts import build_windows_portable
 from ui.help_docs import (
     METHODOLOGY_DOCX_PATH,
+    METHODOLOGY_MD_PATH,
     SOP_DOCX_PATH,
+    SOP_MD_PATH,
     TOPIC_DOCS,
     extract_docx_section,
+    load_md_sections,
     read_docx_paragraphs,
 )
 
@@ -206,3 +210,92 @@ def test_every_omml_equation_followed_by_unbulleted_where_block() -> None:
             j += 1
 
         assert item_count >= 1, f"Where block after equation {eq_idx} has zero variable definitions"
+
+
+def test_quick_md_files_exist_parse_and_match_tabs() -> None:
+    expected_tabs = [
+        "1. Data & Metadata",
+        "2. Roughness & Pseudo-AFM",
+        "3. Kinetics & Comparison",
+        "4. DSC Correlation",
+        "5. Export & Report",
+    ]
+    assert SOP_MD_PATH.exists() and SOP_MD_PATH.stat().st_size > 0
+    assert METHODOLOGY_MD_PATH.exists() and METHODOLOGY_MD_PATH.stat().st_size > 0
+
+    sop_sections = load_md_sections(str(SOP_MD_PATH))
+    meth_sections = load_md_sections(str(METHODOLOGY_MD_PATH))
+
+    assert list(sop_sections.keys()) == expected_tabs
+    assert list(meth_sections.keys()) == expected_tabs
+
+    for tab_name in expected_tabs:
+        assert len(sop_sections[tab_name]) >= 80, f"SOP section too short for {tab_name}"
+        assert len(meth_sections[tab_name]) >= 80, f"Methodology section too short for {tab_name}"
+
+    for tab_name in expected_tabs[:4]:
+        assert "$$" in meth_sections[tab_name], f"Expected display LaTeX in {tab_name}"
+
+    meth_full = "\n".join(meth_sections.values())
+    required_identifiers = [
+        "34682",
+        r"u_{\text{raster}}",
+        "HV_Mismatch",
+        r"\sigma_{\text{noise}}",
+        "TRNR",
+        "LocTRNR",
+        "Bloom_Coverage",
+        "Meso_SNR",
+        "Grad_SNR",
+        "Blade_Index",
+        "Anisotropy_Coh",
+        "PSD_logSNR",
+        "PSD_Beta",
+        r"L_{\text{corr}}",
+        "CBI",
+        "Geom_Bloom_Index",
+        r"t_{\text{lag}}",
+        "AUC",
+        "Suppressed",
+        "Mild / Non-Sigmoidal Drift",
+        "PCA",
+        "Kruskal",
+        r"HF_{\text{base}}",
+        r"T_{\text{peak}}",
+        r"T_{\text{onset}}",
+        r"T_{\text{endset}}",
+        "FWHM",
+        r"\Delta H",
+        "Overshoot",
+        "settings.json",
+        "analysis_report.md",
+    ]
+    for ident in required_identifiers:
+        assert ident in meth_full, f"Missing identifier '{ident}' in Methodology_quick.md"
+
+
+def test_quick_md_files_have_zero_orphan_where_lines() -> None:
+    orphan_where_re = re.compile(r"^\s*(?:[*_#>\-\s]*)?where\b[:\s]*$", re.IGNORECASE)
+    starts_with_where_re = re.compile(r"^\s*(?:[*_#>\-\s]*)?where\b", re.IGNORECASE)
+
+    for md_path in (SOP_MD_PATH, METHODOLOGY_MD_PATH):
+        for lineno, line in enumerate(md_path.read_text(encoding="utf-8").splitlines(), start=1):
+            assert not orphan_where_re.match(line), (
+                f"Orphan 'Where' line found in {md_path.name}:{lineno}: {line}"
+            )
+            assert not starts_with_where_re.match(line), (
+                f"Line starts with 'Where' in {md_path.name}:{lineno}: {line}"
+            )
+
+
+def test_windows_portable_packager_includes_docs_dir(tmp_path: Path) -> None:
+    project_root = Path(__file__).resolve().parent.parent
+    staged = build_windows_portable._stage_project_files(project_root, tmp_path)
+    for expected_rel in (
+        "docs/SOP_quick.md",
+        "docs/Methodology_quick.md",
+        "docs/SOP.docx",
+        "docs/Methodology.docx",
+    ):
+        assert expected_rel in staged, f"Missing '{expected_rel}' in staged portable files"
+        assert (tmp_path / expected_rel).is_file()

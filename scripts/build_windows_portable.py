@@ -33,14 +33,13 @@ INCLUDE_ROOT_FILES: list[str] = [
 INCLUDE_SUBDIRS: list[str] = [
     "core",
     "ui",
+    "docs",
 ]
 
 INCLUDE_EXPLICIT_FILES: list[str] = [
     "assets/bloompix.ico",
     "assets/bloompix.png",
     "data/.gitkeep",
-    "docs/Methodology.docx",
-    "docs/SOP.docx",
     "scripts/auto_update.py",
     "scripts/create_windows_shortcut.vbs",
 ]
@@ -51,6 +50,7 @@ IGNORE_PATTERNS = shutil.ignore_patterns(
     "*.pyo",
     ".DS_Store",
     "Thumbs.db",
+    "~$*",
 )
 
 
