@@ -274,6 +274,38 @@ def m_matrix(rows: list[list[MathArg]]) -> OMMLNode:
     return m_delim(m_el, beg="[", end="]")
 
 
+def m_lim_low(base: MathArg, lim: MathArg) -> OMMLNode:
+    """Create an OMML lower-limit operator <m:limLow> (e.g., arg max over an interval)."""
+    el = _m("limLow")
+    el.append(_m("limLowPr"))
+    me = _m("e")
+    _append_nodes(me, base)
+    mlim = _m("lim")
+    _append_nodes(mlim, lim)
+    el.append(me)
+    el.append(mlim)
+    return el
+
+
+def m_acc(expr: MathArg, chr_sym: str = "\u0304") -> OMMLNode:
+    """Create an OMML accent <m:acc> (default combining overbar for sample means)."""
+    el = _m("acc")
+    apr = _m("accPr")
+    ch = _m("chr")
+    ch.set(f"{{{M_NS}}}val", chr_sym)
+    apr.append(ch)
+    el.append(apr)
+    me = _m("e")
+    _append_nodes(me, expr)
+    el.append(me)
+    return el
+
+
+def m_eval_at(expr: MathArg, sub_expr: MathArg) -> OMMLNode:
+    """Create a derivative evaluation bar with subscripted evaluation point."""
+    return m_sub(m_delim(expr, beg="", end="|"), sub_expr)
+
+
 def add_omml_equation(doc: Document, *nodes: MathArg) -> None:
     """Insert a centered, shaded native Word OMML display equation paragraph."""
     p = doc.add_paragraph()
@@ -455,7 +487,7 @@ def _add_table(doc: Document, headers: list[str], rows: list[list[str]]) -> None
 
 def build_methodology_docx(out_path: Path) -> None:
     doc = _init_doc(
-        "BloomPix v1.1.0 — Scientific Methodology & Mathematical Reference",
+        "BloomPix v1.1.1 — Scientific Methodology & Mathematical Reference",
         "Publication-Grade SEM Fat-Bloom Metrology, Brightness/Contrast-Invariant Roughness, Kinetic Modeling & DSC",
     )
 
@@ -836,6 +868,25 @@ def build_methodology_docx(out_path: Path) -> None:
     )
     add_omml_equation(
         doc,
+        m_sub(m_op("log"), m_op("10")),
+        m_op("PSD"),
+        m_delim([m_var("f")]),
+        m_op(" = −"),
+        m_var("β"),
+        m_op(" ⋅ "),
+        m_sub(m_op("log"), m_op("10")),
+        m_delim([m_var("f")]),
+        m_op(" + "),
+        m_var("c"),
+        m_op(",    "),
+        m_var("f"),
+        m_op(" ∈ [5, 0.35 ⋅ "),
+        m_sub(m_var("r"), m_op("max")),
+        m_op("] ⋅ Δ"),
+        m_var("f"),
+    )
+    add_omml_equation(
+        doc,
         m_sub(m_var("L"), m_op("corr")),
         m_op(" = "),
         m_sub(m_var("r"), m_op("1/e")),
@@ -866,12 +917,35 @@ def build_methodology_docx(out_path: Path) -> None:
             ],
         ),
     )
+    add_omml_equation(
+        doc,
+        m_op("Geom_Bloom_Index"),
+        m_op(" = "),
+        m_frac(m_op("1"), m_op("3")),
+        m_nary(
+            "∑",
+            [m_var("g"), m_op("=1")],
+            m_op("3"),
+            [
+                m_op("max"),
+                m_delim(
+                    [
+                        m_frac(
+                            [m_sub(m_var("x"), m_var("g")), m_op(" − "), m_sub(m_var("μ"), [m_var("g"), m_op(",ctrl")])],
+                            [m_sub(m_var("P"), m_op("95,g")), m_op(" − "), m_sub(m_var("μ"), [m_var("g"), m_op(",ctrl")])],
+                        ),
+                        m_op(" × 100,  −20"),
+                    ]
+                ),
+            ],
+        ),
+    )
     _add_body(
         doc,
         "CORE_8 comprises [TRNR_Relief, LocTRNR_Med, Meso_SNR, Grad_SNR, Blade_Index, Anisotropy_Coh, "
         "PSD_Struct_logSNR, Corr_Len_um], anchoring Week 0 control to CBI ≈ 0 while remaining uncapped above 100 "
-        "to resolve severe late-stage blooming. Geom_Bloom_Index averages the noise-free geometric subset "
-        "[Anisotropy_Coh, Corr_Len_um, PSD_Beta] as an HV-resilient cross-check.",
+        "to resolve severe late-stage blooming. Geom_Bloom_Index averages the normalized score across the noise-free "
+        "geometric subset [Anisotropy_Coh, Corr_Len_um, PSD_Beta] as an HV-resilient cross-check.",
     )
 
     _add_table(
@@ -889,6 +963,7 @@ def build_methodology_docx(out_path: Path) -> None:
             ["PSD_Beta", "—", "Mid-band radial PSD power-law decay exponent β", "Struct.-dep."],
             ["Corr_Len_um", "µm", "Characteristic spatial domain length (2D ACF 1/e decay)", "Increases"],
             ["CBI", "pts", "Composite Bloom Index across 8 monotonic metrics (Control ≈ 0)", "0 → 100+"],
+            ["Geom_Bloom_Index", "pts", "HV-resilient mean normalized score across geometric/spectral subset (Anisotropy_Coh, Corr_Len_um, PSD_Beta)", "0 → 100+"],
         ],
     )
 
@@ -960,7 +1035,7 @@ def build_methodology_docx(out_path: Path) -> None:
     )
 
     # Section 5
-    _add_h1(doc, "5. Optional DSC Thermal Correlation & Reproducibility Standard")
+    _add_h1(doc, "5. Optional DSC Thermal Analysis & SEM×DSC Correlation Standard")
     _add_body(
         doc,
         "BloomPix parses raw TA Instruments Discovery DSC tab-delimited .txt thermograms directly (as well as "
@@ -980,6 +1055,45 @@ def build_methodology_docx(out_path: Path) -> None:
         "or NaN onset); bimodal melting (≥ 2 peaks ≥ 2.0 °C apart, prominence ≥ 15%) is reported purely as "
         "informational metadata, and valid manual overrides resolve to 'OK (Manual)'.",
     )
+
+    _add_h2(doc, "5.1 Summary Table of All DSC & Correlation Metrics (\"What is What\")")
+    _add_table(
+        doc,
+        ["Parameter / Metric", "Units", "Physical & Statistical Interpretation"],
+        [
+            ["T_lo_used / T_hi_used", "°C", "Automatically detected pre-melting ([21.6, 24.2] °C) and post-melting ([38.0, 45.0] °C) linear baseline anchor temperatures (or manual override values)."],
+            ["T_onset_C", "°C", "Extrapolated melting onset temperature (ASTM E794 steepest leading-edge tangent intercept with baseline); indicates initial crystal destabilization / early-melting polymorphs."],
+            ["T_peak_C", "°C", "Peak maximum melting temperature of the endothermic transition; reflects the dominant cocoa-butter polymorph (β_V ≈ 32–34 °C, β_VI > 34 °C, softened/migrated fat < 30 °C)."],
+            ["T_endset_C", "°C", "Extrapolated melting completion temperature (ASTM E794 steepest trailing-edge tangent intercept with baseline)."],
+            ["Delta_T_C", "°C", "Total melting range width (T_endset − T_onset); increases with polymorphic heterogeneity and mixed crystal sizes."],
+            ["FWHM_C", "°C", "Full Width at Half Maximum of the endothermic peak; robust measure of phase-transition broadening during fat bloom."],
+            ["Delta_H_J_g", "J/g", "Specific melting enthalpy obtained by integrating endothermic heat flow over time; measures overall crystalline fat content / crystal lattice integrity."],
+            ["High_Melt_gt34C_pct", "%", "High-melting enthalpy fraction at T ≥ T_cutoff (default 34.0 °C); quantitative proxy for high-melting β_VI polymorph formation."],
+            ["baseline_overshoot_pct", "%", "Percentage of points in [T_lo, T_hi] where the curve exceeds the baseline by > 0.004 W/g; automatic baseline QC check."],
+            ["is_bimodal", "True/False", "Informational flag indicating ≥ 2 distinct endothermic peaks (≥ 2.0 °C separation, prominence ≥ 15%); indicates multi-polymorph melting (not a QC error)."],
+            ["qc_flag", "OK / OK (Manual) / Review Baseline", "Automated baseline quality status separating valid auto/manual baselines from curves needing baseline inspection."],
+            ["Pearson r", "−1 to +1", "Linear correlation coefficient between matched SEM and DSC weekly means (reported with two-sided p_pearson)."],
+            ["Spearman ρ", "−1 to +1", "Rank-order monotonic correlation coefficient resilient to nonlinear bloom progression and outliers (reported with two-sided p_spearman)."],
+        ],
+    )
+
+    _add_h2(doc, "5.2 Complete Mathematical Formulations (DSC & SEM×DSC Correlation)")
+    # 1. Linear Baseline Construction
+    add_omml_equation(
+        doc,
+        m_sub(m_op("HF"), m_op("base")),
+        m_delim([m_var("T")]),
+        m_op(" = "),
+        m_sub(m_op("HF"), m_op("lo")),
+        m_op(" + "),
+        m_frac(
+            [m_sub(m_op("HF"), m_op("hi")), m_op(" − "), m_sub(m_op("HF"), m_op("lo"))],
+            [m_sub(m_var("T"), m_op("hi")), m_op(" − "), m_sub(m_var("T"), m_op("lo"))],
+        ),
+        m_op(" ⋅ "),
+        m_delim([m_var("T"), m_op(" − "), m_sub(m_var("T"), m_op("lo"))]),
+    )
+    # 2. Positive Endothermic Signal
     add_omml_equation(
         doc,
         m_op("endo"),
@@ -992,6 +1106,69 @@ def build_methodology_docx(out_path: Path) -> None:
         m_delim([m_var("T")]),
         m_op("   [W/g]"),
     )
+    # 3. Melting Peak Temperature
+    add_omml_equation(
+        doc,
+        m_sub(m_var("T"), m_op("peak")),
+        m_op(" = "),
+        m_lim_low(
+            m_op("arg max"),
+            [m_var("T"), m_op(" ∈ ["), m_sub(m_var("T"), m_op("lo")), m_op(", "), m_sub(m_var("T"), m_op("hi")), m_op("]")],
+        ),
+        m_op(" "),
+        m_sub(m_op("endo"), m_op("smooth")),
+        m_delim([m_var("T")]),
+        m_op("   [°C]"),
+    )
+    # 4. Extrapolated Onset & Endset Temperatures (ASTM E794)
+    add_omml_equation(
+        doc,
+        m_sub(m_var("T"), m_op("onset")),
+        m_op(" = "),
+        m_subsup(m_var("T"), m_op("lead"), m_op("*")),
+        m_op(" − "),
+        m_frac(
+            [m_sub(m_op("endo"), m_op("smooth")), m_delim([m_subsup(m_var("T"), m_op("lead"), m_op("*"))])],
+            m_eval_at(
+                m_frac([m_var("d"), m_op(" "), m_sub(m_op("endo"), m_op("smooth"))], [m_var("dT")]),
+                m_subsup(m_var("T"), m_op("lead"), m_op("*")),
+            ),
+        ),
+        m_op("   [°C]"),
+    )
+    add_omml_equation(
+        doc,
+        m_sub(m_var("T"), m_op("endset")),
+        m_op(" = "),
+        m_subsup(m_var("T"), m_op("trail"), m_op("*")),
+        m_op(" − "),
+        m_frac(
+            [m_sub(m_op("endo"), m_op("smooth")), m_delim([m_subsup(m_var("T"), m_op("trail"), m_op("*"))])],
+            m_eval_at(
+                m_frac([m_var("d"), m_op(" "), m_sub(m_op("endo"), m_op("smooth"))], [m_var("dT")]),
+                m_subsup(m_var("T"), m_op("trail"), m_op("*")),
+            ),
+        ),
+        m_op("   [°C]"),
+    )
+    # 5. Melting Range Width & FWHM
+    add_omml_equation(
+        doc,
+        m_op("Δ"),
+        m_var("T"),
+        m_op(" = "),
+        m_sub(m_var("T"), m_op("endset")),
+        m_op(" − "),
+        m_sub(m_var("T"), m_op("onset")),
+        m_op(",    "),
+        m_op("FWHM"),
+        m_op(" = "),
+        m_sub(m_var("T"), m_op("right,0.5")),
+        m_op(" − "),
+        m_sub(m_var("T"), m_op("left,0.5")),
+        m_op("   [°C]"),
+    )
+    # 6. Specific Melting Enthalpy (t = time_min * 60 s) & High-Melting Fraction
     add_omml_equation(
         doc,
         m_op("Δ"),
@@ -1017,7 +1194,7 @@ def build_methodology_docx(out_path: Path) -> None:
                 m_var("dt"),
             ],
         ),
-        m_op(",    "),
+        m_op("  [J/g],    "),
         m_sub(m_var("F"), m_op(">34°C")),
         m_op(" = "),
         m_frac(
@@ -1026,19 +1203,95 @@ def build_methodology_docx(out_path: Path) -> None:
         ),
         m_op(" × 100%"),
     )
-    _add_body(
+    # 7. Automatic Baseline Overshoot QC Criterion
+    add_omml_equation(
         doc,
-        "After light Gaussian smoothing (σ = 6 grid points across a 1000-point uniform grid in [T_lo, T_hi]), "
-        "ASTM E794 extrapolated T_onset_C and T_endset_C are computed as the baseline intercepts of the steepest "
-        "tangents within the 20%–80% leading and trailing peak edges, alongside T_peak_C, melting range "
-        "Delta_T_C = T_endset_C − T_onset_C, and FWHM_C.",
+        m_sub(m_op("Overshoot"), m_op("%")),
+        m_op(" = "),
+        m_frac(m_op("100"), m_var("N")),
+        m_nary(
+            "∑",
+            [m_var("i"), m_op("=1")],
+            m_var("N"),
+            [
+                m_op("𝕀"),
+                m_delim(
+                    [
+                        m_op("HF"),
+                        m_delim([m_sub(m_var("T"), m_var("i"))]),
+                        m_op(" > "),
+                        m_sub(m_op("HF"), m_op("base")),
+                        m_delim([m_sub(m_var("T"), m_var("i"))]),
+                        m_op(" + 0.004"),
+                    ]
+                ),
+            ],
+        ),
+        m_op("   [%]"),
+    )
+    # 8. Pearson r and Spearman rho
+    add_omml_equation(
+        doc,
+        m_var("r"),
+        m_op(" = "),
+        m_frac(
+            [
+                m_nary(
+                    "∑",
+                    [m_var("i"), m_op("=1")],
+                    m_var("n"),
+                    [
+                        m_delim([m_sub(m_var("x"), m_var("i")), m_op(" − "), m_acc(m_var("x"))]),
+                        m_delim([m_sub(m_var("y"), m_var("i")), m_op(" − "), m_acc(m_var("y"))]),
+                    ],
+                )
+            ],
+            [
+                m_rad(
+                    m_nary(
+                        "∑",
+                        [m_var("i"), m_op("=1")],
+                        m_var("n"),
+                        [m_sup(m_delim([m_sub(m_var("x"), m_var("i")), m_op(" − "), m_acc(m_var("x"))]), m_op("2"))],
+                    )
+                ),
+                m_rad(
+                    m_nary(
+                        "∑",
+                        [m_var("i"), m_op("=1")],
+                        m_var("n"),
+                        [m_sup(m_delim([m_sub(m_var("y"), m_var("i")), m_op(" − "), m_acc(m_var("y"))]), m_op("2"))],
+                    )
+                ),
+            ],
+        ),
+    )
+    add_omml_equation(
+        doc,
+        m_var("ρ"),
+        m_op(" = 1 − "),
+        m_frac(
+            [
+                m_op("6 "),
+                m_nary(
+                    "∑",
+                    [m_var("i"), m_op("=1")],
+                    m_var("n"),
+                    [m_subsup(m_var("d"), m_var("i"), m_op("2"))],
+                ),
+            ],
+            [m_var("n"), m_delim([m_sup(m_var("n"), m_op("2")), m_op(" − 1")])],
+        ),
     )
     _add_body(
         doc,
-        "Replicate parameters are aggregated per (treatment, week) and inner-joined against SEM summary metrics "
-        "to compute Pearson r and Spearman ρ correlations with two-sided p-values for every pair with n ≥ 3 "
-        "valid observations, supporting both Pooled and Per-Treatment (Within-Group Aging) scope with "
-        "HV-mismatched weeks excluded per the sidebar policy.",
+        "After light Gaussian smoothing (σ = 6 grid points across a 1000-point uniform grid in [T_lo, T_hi]), "
+        "ASTM E794 extrapolated T_onset_C and T_endset_C are evaluated at the steepest positive and negative "
+        "tangents within the 20%–80% peak-height edges (time t = time_min × 60 s for W/g × s = J/g integration). "
+        "For SEM × DSC correlation, replicate parameters are aggregated per (treatment, week), inner-joined with "
+        "SEM metrics (Pooled or Per-Treatment Within-Group Aging, excluding HV-mismatched weeks per sidebar policy), "
+        "and evaluated for pairs with n ≥ 3 observations; scipy.stats.spearmanr applies exact tie-adjusted rank "
+        "correlation whenever tied ranks occur.",
     )
     _add_body(
         doc,
@@ -1054,7 +1307,7 @@ def build_methodology_docx(out_path: Path) -> None:
 
 def build_sop_docx(out_path: Path) -> None:
     doc = _init_doc(
-        "BloomPix v1.1.0 — Standard Operating Procedure (SOP)",
+        "BloomPix v1.1.1 — Standard Operating Procedure (SOP)",
         "Laboratory & Workstation Guide for SEM Chocolate Fat-Bloom & DSC Analysis (5-Tab Workflow)",
     )
 

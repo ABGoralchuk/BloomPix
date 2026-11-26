@@ -94,9 +94,9 @@ TOPIC_DOCS: dict[str, dict[str, Any]] = {
             "Per-Treatment SEM×DSC correlations excluding HV-mismatched weeks."
         ),
         "equations": [
-            r"\Delta H = \int_{t_{\text{lo}}}^{t_{\text{hi}}} \max\big(\text{hf}_{\text{base}}(t) - \text{hf}(t),\; 0\big)\,dt \quad [\text{J/g}]",
-            r"\text{High\_Melt}_{>34^\circ\text{C}}\% = 100 \times \frac{\Delta H(T \ge 34^\circ\text{C})}{\Delta H}",
-            r"r = \frac{\sum (x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum (x_i - \bar{x})^2 \sum (y_i - \bar{y})^2}}",
+            r"T_{\text{onset}} = T^*_{\text{lead}} - \frac{\text{endo}_{\text{smooth}}(T^*_{\text{lead}})}{(d\,\text{endo}_{\text{smooth}}/dT)\big|_{T^*_{\text{lead}}}}",
+            r"\Delta H = \int_{t_{\text{lo}}}^{t_{\text{hi}}} \max\big(HF_{\text{base}}(t) - HF(t),\; 0\big)\,dt \quad [\text{J/g}], \quad F_{>34^\circ\text{C}} = 100 \times \frac{\Delta H_{T \ge 34^\circ\text{C}}}{\Delta H}",
+            r"r = \frac{\sum_{i=1}^{n}(x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum_{i=1}^{n}(x_i - \bar{x})^2}\sqrt{\sum_{i=1}^{n}(y_i - \bar{y})^2}}, \quad \rho = 1 - \frac{6\sum_{i=1}^{n} d_i^2}{n(n^2 - 1)}",
         ],
     },
     "5. Export & Report": {

@@ -19,7 +19,7 @@ from ui.help_docs import (
 )
 
 _RAW_LATEX_RE = re.compile(
-    r"\\(?:frac|sqrt|mu|sigma|beta|rho|pm|le|ge|times|text|cdot|sum|int|approx|ln|log)\b"
+    r"\\(?:frac|sqrt|mu|sigma|beta|rho|pm|le|ge|times|text|cdot|sum|int|approx|ln|log|mathbb|arg|left|right|bar)\b"
 )
 
 
@@ -34,8 +34,8 @@ def _all_docx_strings(path: Path) -> list[str]:
     return texts
 
 
-def test_app_version_is_1_1_0() -> None:
-    assert APP_VERSION == "1.1.0"
+def test_app_version_is_1_1_1() -> None:
+    assert APP_VERSION == "1.1.1"
 
 
 def test_docx_exist_and_contain_zero_raw_latex() -> None:
@@ -83,9 +83,9 @@ def test_methodology_contains_native_omml_equations() -> None:
     root = ET.fromstring(xml_bytes)
     omath_elems = root.findall(f".//{{{m_ns}}}oMath")
     omath_para_elems = root.findall(f".//{{{m_ns}}}oMathPara")
-    assert len(omath_elems) >= 10, f"Expected >= 10 native <m:oMath> equations, got {len(omath_elems)}"
-    assert len(omath_para_elems) >= 10, (
-        f"Expected >= 10 <m:oMathPara> blocks, got {len(omath_para_elems)}"
+    assert len(omath_elems) >= 18, f"Expected >= 18 native <m:oMath> equations, got {len(omath_elems)}"
+    assert len(omath_para_elems) >= 18, (
+        f"Expected >= 18 <m:oMathPara> blocks, got {len(omath_para_elems)}"
     )
 
     for mt in root.findall(f".//{{{m_ns}}}t"):
@@ -93,3 +93,55 @@ def test_methodology_contains_native_omml_equations() -> None:
             assert not _RAW_LATEX_RE.search(mt.text), (
                 f"Raw LaTeX backslash leaked into OMML run: {mt.text}"
             )
+
+    all_text = "\n".join(_all_docx_strings(METHODOLOGY_DOCX_PATH))
+    assert "BloomPix v1.1.1" in all_text
+    assert "BloomPix v1.1.1" in "\n".join(_all_docx_strings(SOP_DOCX_PATH))
+
+    expected_terms = [
+        "Geom_Bloom_Index",
+        "PSD_Beta",
+        "T_lo_used",
+        "T_hi_used",
+        "T_onset_C",
+        "T_peak_C",
+        "T_endset_C",
+        "Delta_T_C",
+        "FWHM_C",
+        "Delta_H_J_g",
+        "High_Melt_gt34C_pct",
+        "baseline_overshoot_pct",
+        "is_bimodal",
+        "qc_flag",
+        "Pearson r",
+        "Spearman",
+    ]
+    for term in expected_terms:
+        assert term in all_text, f"Expected term '{term}' missing from Methodology.docx tables/text"
+
+    # Verify the DSC summary table appears BEFORE the Section 5 DSC OMML equations in document order
+    w_ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    body = root.find(f"{{{w_ns}}}body")
+    assert body is not None
+    body_children = list(body)
+    dsc_tbl_idx = next(
+        (
+            idx
+            for idx, el in enumerate(body_children)
+            if el.tag == f"{{{w_ns}}}tbl"
+            and "T_onset_C" in "".join(t.text or "" for t in el.findall(f".//{{{w_ns}}}t"))
+        ),
+        None,
+    )
+    dsc_eq_idx = next(
+        (
+            idx
+            for idx, el in enumerate(body_children)
+            if el.tag == f"{{{w_ns}}}p"
+            and el.find(f".//{{{m_ns}}}oMath") is not None
+            and "Overshoot" in "".join(t.text or "" for t in el.findall(f".//{{{m_ns}}}t"))
+        ),
+        None,
+    )
+    assert dsc_tbl_idx is not None and dsc_eq_idx is not None
+    assert dsc_tbl_idx < dsc_eq_idx, "DSC summary table must appear before Section 5 DSC OMML equations"
