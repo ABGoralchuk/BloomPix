@@ -80,17 +80,22 @@ TOPIC_DOCS: dict[str, dict[str, Any]] = {
         "sop_marker": "2.4 Tab 4",
         "sop_end_marker": "2.5 Tab 5",
         "sop_steps": [
-            "Download the **Pre-Populated DSC Template CSV** matching your dataset's `(treatment, week)` pairs.",
-            "Fill in thermal columns (`T_onset_C`, `T_peak_C`, `Delta_H_J_g`, `Beta_VI_pct`) and upload `.csv` or `.xlsx`.",
-            "Review Pearson `r`, Spearman `ρ`, correlation heatmap, and scatter trendlines.",
+            "In **Raw TA Instruments DSC Folder (.txt)**, point to `data/DSC` (`<treatment>W<week>r<rep>.txt` and `controlr<rep>.txt`) and click **Scan & Analyze Raw DSC Folder** — pre-melting and post-melting baselines are detected automatically.",
+            "Confirm **Baseline QC OK** vs **Needs Review** (`overshoot > 5%` or `T_onset < T_lo + 0.05 °C`; bimodal curves are purely informational); apply targeted per-file overrides only when flagged (resolved runs become `OK (Manual)`).",
+            "Inspect raw curves in **Thermogram QA Inspector**, view trends in **DSC Thermodynamic Evolution**, and export the **All Samples — DSC Thermodynamic Parameters** table (Weekly Means ± SD or Individual Replicates) directly below as CSV.",
+            "Choose **Correlation Scope** (`All Treatments (Pooled)` vs `Per-Treatment (Within-Group Aging)`) while respecting the global sidebar **HV exclusion policy**.",
         ],
         "meth_marker": "5. Optional DSC",
         "meth_end_marker": None,
         "methodology_summary": (
-            "Aligns SEM `(treatment, week)` summary means with DSC thermal parameters (expanding shared Week 0 "
-            "controls) and computes parametric Pearson `r` and rank-based Spearman `ρ` correlations."
+            "Anchors the flattest pre-melting plateau within `0.006 W/g` of the `21.6–23.0 °C` 90th-percentile level "
+            "(strictly avoiding post-drop shoulders) and post-melting baseline in `38.0–45.0 °C`, flags true baseline "
+            "issues (`overshoot > 5%` or `T_onset < T_lo + 0.05 °C`), computes ASTM E794 parameters, and runs Pooled or "
+            "Per-Treatment SEM×DSC correlations excluding HV-mismatched weeks."
         ),
         "equations": [
+            r"\Delta H = \int_{t_{\text{lo}}}^{t_{\text{hi}}} \max\big(\text{hf}_{\text{base}}(t) - \text{hf}(t),\; 0\big)\,dt \quad [\text{J/g}]",
+            r"\text{High\_Melt}_{>34^\circ\text{C}}\% = 100 \times \frac{\Delta H(T \ge 34^\circ\text{C})}{\Delta H}",
             r"r = \frac{\sum (x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum (x_i - \bar{x})^2 \sum (y_i - \bar{y})^2}}",
         ],
     },

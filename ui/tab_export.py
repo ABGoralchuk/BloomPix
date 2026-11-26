@@ -37,6 +37,7 @@ def render() -> None:
     figures = state.get_exported_figures()
     extra_tables = state.get_exported_tables()
     dsc_corr_df, _ = state.get_dsc_results()
+    dsc_rep_df, dsc_agg_df, _ = state.get_dsc_raw_data()
 
     if summary is None or metrics_df is None or metrics_df.empty:
         st.info(
@@ -159,6 +160,8 @@ def render() -> None:
             include_individual_week_maps=include_indiv,
             session_figures=figures,
             dsc_corr_df=dsc_corr_df,
+            dsc_replicate_df=dsc_rep_df,
+            dsc_agg_df=dsc_agg_df,
             artifact_masks=masks,
             progress_callback=_on_archive_progress,
         )

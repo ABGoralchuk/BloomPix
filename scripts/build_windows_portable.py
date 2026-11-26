@@ -41,6 +41,7 @@ INCLUDE_EXPLICIT_FILES: list[str] = [
     "data/.gitkeep",
     "docs/Methodology.docx",
     "docs/SOP.docx",
+    "scripts/auto_update.py",
     "scripts/create_windows_shortcut.vbs",
 ]
 
@@ -93,6 +94,19 @@ def _enable_embed_site_packages(embed_dir: Path) -> None:
     pth_path.write_text("\n".join(updated) + "\n", encoding="utf-8")
 
 
+def _resolve_head_sha(project_root: Path) -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(project_root),
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=5.0,
+        ).strip()
+    except Exception:
+        return ""
+
+
 def _stage_project_files(project_root: Path, stage_dir: Path) -> list[str]:
     copied: list[str] = []
     for rel in INCLUDE_ROOT_FILES + INCLUDE_EXPLICIT_FILES:
@@ -111,6 +125,12 @@ def _stage_project_files(project_root: Path, stage_dir: Path) -> list[str]:
         for f in sorted(dst_dir.rglob("*")):
             if f.is_file():
                 copied.append(f.relative_to(stage_dir).as_posix())
+
+    head_sha = _resolve_head_sha(project_root)
+    if head_sha:
+        commit_marker = stage_dir / ".bloompix_commit"
+        commit_marker.write_text(f"{head_sha}\n", encoding="utf-8")
+        copied.append(".bloompix_commit")
     return sorted(copied)
 
 

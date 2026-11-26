@@ -4,7 +4,15 @@ Note: Modules inside ``core`` must NEVER import ``streamlit``.
 """
 
 from core.artifacts import build_valid_mask, detect_surface_artifacts
-from core.dsc import correlate_sem_with_dsc, load_dsc_table
+from core.dsc import (
+    DSC_PARAM_COLS,
+    compute_dsc_thermodynamics,
+    correlate_sem_with_dsc,
+    load_dsc_table,
+    parse_dsc_filename,
+    parse_ta_dsc_txt,
+    scan_and_analyze_dsc_folder,
+)
 from core.export_engine import (
     build_analysis_report_md,
     build_complete_publication_archive,
@@ -66,6 +74,7 @@ __all__ = [
     "ArtifactMask",
     "CORE_CBI_METRICS",
     "Calibration",
+    "DSC_PARAM_COLS",
     "DatasetSummary",
     "GEOM_CBI_METRICS",
     "KINETIC_METRIC_CATALOG",
@@ -84,6 +93,7 @@ __all__ = [
     "build_valid_mask",
     "calibrate_control_threshold",
     "compute_composite_bloom_index",
+    "compute_dsc_thermodynamics",
     "compute_image_qc",
     "compute_image_roughness",
     "compute_morphology_pca",
@@ -103,7 +113,10 @@ __all__ = [
     "load_sem_image",
     "make_display_image",
     "parse_fei_tiff_metadata",
+    "parse_dsc_filename",
     "parse_filename_metadata",
+    "parse_ta_dsc_txt",
     "save_metadata_overrides",
+    "scan_and_analyze_dsc_folder",
     "scan_dataset",
 ]

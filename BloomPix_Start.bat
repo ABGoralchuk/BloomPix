@@ -16,14 +16,6 @@ if not exist "%USERPROFILE%\Desktop\BloomPix.lnk" (
     )
 )
 
-if exist ".git" (
-    where git >nul 2>nul
-    if !errorlevel! equ 0 (
-        echo [BloomPix] Checking for repository updates...
-        git pull --ff-only >nul 2>&1
-    )
-)
-
 set "PYTHON_EXE="
 set "NEED_INSTALL=0"
 
@@ -76,6 +68,20 @@ if "!NEED_INSTALL!"=="1" (
         pause
         exit /b 1
     )
+)
+
+if exist ".git" (
+    where git >nul 2>nul
+    if !errorlevel! equ 0 (
+        echo [BloomPix] Checking for repository updates...
+        git pull --ff-only >nul 2>&1
+    ) else if exist "%~dp0scripts\auto_update.py" (
+        echo [BloomPix] Checking for GitHub updates...
+        "%PYTHON_EXE%" "%~dp0scripts\auto_update.py" --repo ABGoralchuk/BloomPix --branch main
+    )
+) else if exist "%~dp0scripts\auto_update.py" (
+    echo [BloomPix] Checking for GitHub updates...
+    "%PYTHON_EXE%" "%~dp0scripts\auto_update.py" --repo ABGoralchuk/BloomPix --branch main
 )
 
 echo [BloomPix] Using Python: "%PYTHON_EXE%"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Optional
 
 import pandas as pd
@@ -19,7 +20,14 @@ _DEFAULTS: dict[str, Any] = {
     "scale_cal_info": {},
     "kinetics_cache": {},
     "week_maps_cache": {},
+    "dsc_dir": "data/DSC" if Path("data/DSC").is_dir() else "DSC",
     "dsc_df": None,
+    "dsc_replicate_df": None,
+    "dsc_agg_df": None,
+    "dsc_curves": {},
+    "dsc_per_file_overrides": {},
+    "dsc_beta6_cutoff_C": 34.0,
+    "dsc_override_notice": None,
     "dsc_corr_df": None,
     "dsc_merged_df": None,
     "exported_figures": {},
@@ -200,6 +208,40 @@ def set_week_maps(
     st.session_state["week_maps_cache"][(scale, treatment, int(replicate))] = entries
 
 
+def get_dsc_dir() -> str:
+    init_state()
+    return str(st.session_state["dsc_dir"])
+
+
+def set_dsc_dir(path: str) -> None:
+    init_state()
+    st.session_state["dsc_dir"] = path
+
+
+def get_dsc_raw_data() -> tuple[Optional[pd.DataFrame], Optional[pd.DataFrame], dict[str, dict[str, Any]]]:
+    init_state()
+    return (
+        st.session_state["dsc_replicate_df"],
+        st.session_state["dsc_agg_df"],
+        st.session_state["dsc_curves"],
+    )
+
+
+def set_dsc_raw_data(
+    replicate_df: Optional[pd.DataFrame],
+    agg_df: Optional[pd.DataFrame],
+    curves: dict[str, dict[str, Any]],
+) -> None:
+    init_state()
+    st.session_state["dsc_replicate_df"] = replicate_df
+    st.session_state["dsc_agg_df"] = agg_df
+    st.session_state["dsc_curves"] = curves
+    st.session_state["dsc_df"] = agg_df
+    st.session_state["dsc_corr_df"] = None
+    st.session_state["dsc_merged_df"] = None
+    st.session_state["publication_archive_cache"].clear()
+
+
 def get_dsc_df() -> Optional[pd.DataFrame]:
     init_state()
     return st.session_state["dsc_df"]
@@ -221,6 +263,50 @@ def set_dsc_results(corr_df: pd.DataFrame, merged_df: pd.DataFrame) -> None:
     init_state()
     st.session_state["dsc_corr_df"] = corr_df
     st.session_state["dsc_merged_df"] = merged_df
+
+
+def get_dsc_per_file_overrides() -> dict[str, tuple[tuple[float, float], tuple[float, float]]]:
+    init_state()
+    return dict(st.session_state["dsc_per_file_overrides"])
+
+
+def set_dsc_file_override(
+    filename: str,
+    base_low: tuple[float, float],
+    base_high: tuple[float, float],
+) -> None:
+    init_state()
+    st.session_state["dsc_per_file_overrides"][str(filename)] = (
+        (float(base_low[0]), float(base_low[1])),
+        (float(base_high[0]), float(base_high[1])),
+    )
+
+
+def clear_dsc_file_override(filename: str) -> None:
+    init_state()
+    st.session_state["dsc_per_file_overrides"].pop(str(filename), None)
+
+
+def get_dsc_cutoff_c() -> float:
+    init_state()
+    return float(st.session_state["dsc_beta6_cutoff_C"])
+
+
+def set_dsc_cutoff_c(val: float) -> None:
+    init_state()
+    st.session_state["dsc_beta6_cutoff_C"] = float(val)
+
+
+def set_dsc_override_notice(msg: str) -> None:
+    init_state()
+    st.session_state["dsc_override_notice"] = str(msg)
+
+
+def pop_dsc_override_notice() -> Optional[str]:
+    init_state()
+    msg = st.session_state.get("dsc_override_notice")
+    st.session_state["dsc_override_notice"] = None
+    return str(msg) if msg else None
 
 
 def register_exported_figure(filename: str, png_bytes: bytes) -> None:

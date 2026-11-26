@@ -7,13 +7,14 @@ from pathlib import Path
 from typing import Optional
 
 APP_NAME = "BloomPix"
-APP_VERSION = "1.0.0"
-FALLBACK_DATE = "2026-11-24"
+APP_VERSION = "1.1.0"
+FALLBACK_DATE = "2026-11-26"
 
 
 def get_git_info(repo_dir: Optional[Path] = None) -> tuple[str, str]:
     """Return ``(short_commit_hash, commit_date)`` with a safe offline fallback."""
-    cwd = str(repo_dir or Path(__file__).resolve().parent.parent)
+    root = Path(repo_dir or Path(__file__).resolve().parent.parent)
+    cwd = str(root)
     try:
         commit_hash = subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"],
@@ -33,6 +34,11 @@ def get_git_info(repo_dir: Optional[Path] = None) -> tuple[str, str]:
             return commit_hash, commit_date or FALLBACK_DATE
     except Exception:
         pass
+    commit_marker = root / ".bloompix_commit"
+    if commit_marker.exists():
+        sha = commit_marker.read_text(encoding="utf-8").strip()
+        if sha:
+            return sha[:7], FALLBACK_DATE
     return "local", FALLBACK_DATE
 
 

@@ -297,6 +297,8 @@ def build_complete_publication_archive(
     include_individual_week_maps: bool = False,
     session_figures: Optional[dict[str, bytes]] = None,
     dsc_corr_df: Optional[pd.DataFrame] = None,
+    dsc_replicate_df: Optional[pd.DataFrame] = None,
+    dsc_agg_df: Optional[pd.DataFrame] = None,
     artifact_masks: Optional[dict[str, ArtifactMask]] = None,
     progress_callback: Optional[Callable[..., None]] = None,
 ) -> tuple[bytes, dict[str, Any]]:
@@ -587,9 +589,21 @@ def build_complete_publication_archive(
                 pca_res["loadings_df"].to_csv(index=False).encode("utf-8"),
             )
 
+        if dsc_replicate_df is not None and not dsc_replicate_df.empty:
+            zf.writestr(
+                "dsc/dsc_replicates.csv",
+                dsc_replicate_df.to_csv(index=False).encode("utf-8"),
+            )
+
+        if dsc_agg_df is not None and not dsc_agg_df.empty:
+            zf.writestr(
+                "dsc/dsc_summary_by_week.csv",
+                dsc_agg_df.to_csv(index=False).encode("utf-8"),
+            )
+
         if dsc_corr_df is not None and not dsc_corr_df.empty:
             zf.writestr(
-                "dsc/dsc_correlations.csv",
+                "dsc/sem_dsc_correlations.csv",
                 dsc_corr_df.to_csv(index=False).encode("utf-8"),
             )
 

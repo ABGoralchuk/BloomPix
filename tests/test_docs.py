@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import re
+import zipfile
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 from docx import Document
 
@@ -32,8 +34,8 @@ def _all_docx_strings(path: Path) -> list[str]:
     return texts
 
 
-def test_app_version_is_1_0_0() -> None:
-    assert APP_VERSION == "1.0.0"
+def test_app_version_is_1_1_0() -> None:
+    assert APP_VERSION == "1.1.0"
 
 
 def test_docx_exist_and_contain_zero_raw_latex() -> None:
@@ -71,3 +73,23 @@ def test_topic_docs_markers_resolve_cleanly() -> None:
         )
         assert len(sop_excerpt) >= 2, f"Empty SOP excerpt for {tab_name}"
         assert len(meth_excerpt) >= 1, f"Empty Methodology excerpt for {tab_name}"
+
+
+def test_methodology_contains_native_omml_equations() -> None:
+    m_ns = "http://schemas.openxmlformats.org/officeDocument/2006/math"
+    with zipfile.ZipFile(METHODOLOGY_DOCX_PATH, "r") as zf:
+        xml_bytes = zf.read("word/document.xml")
+
+    root = ET.fromstring(xml_bytes)
+    omath_elems = root.findall(f".//{{{m_ns}}}oMath")
+    omath_para_elems = root.findall(f".//{{{m_ns}}}oMathPara")
+    assert len(omath_elems) >= 10, f"Expected >= 10 native <m:oMath> equations, got {len(omath_elems)}"
+    assert len(omath_para_elems) >= 10, (
+        f"Expected >= 10 <m:oMathPara> blocks, got {len(omath_para_elems)}"
+    )
+
+    for mt in root.findall(f".//{{{m_ns}}}t"):
+        if mt.text:
+            assert not _RAW_LATEX_RE.search(mt.text), (
+                f"Raw LaTeX backslash leaked into OMML run: {mt.text}"
+            )

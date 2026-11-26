@@ -13,16 +13,19 @@ __pycache__/
 *.pyo
 .pytest_cache/
 
-# OS metadata
+# OS & Office temp lock files
 .DS_Store
 Thumbs.db
+~$*
 
-# Local source logo & raw SEM images
+# Local source logo & raw SEM / DSC data
 logo.jpeg
 /logo.png
 /logo.ico
 data/*
 !data/.gitkeep
+DSC/
+data/DSC/
 *.tif
 *.tiff
 *.bmp
@@ -35,5 +38,6 @@ tmp/
 dist/
 build/
 *.log
+.bloompix_commit
 metadata_override.csv
 data/metadata_override.csv
