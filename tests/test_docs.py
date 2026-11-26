@@ -34,8 +34,8 @@ def _all_docx_strings(path: Path) -> list[str]:
     return texts
 
 
-def test_app_version_is_1_1_1() -> None:
-    assert APP_VERSION == "1.1.1"
+def test_app_version_is_1_1_2() -> None:
+    assert APP_VERSION == "1.1.2"
 
 
 def test_docx_exist_and_contain_zero_raw_latex() -> None:
@@ -95,8 +95,8 @@ def test_methodology_contains_native_omml_equations() -> None:
             )
 
     all_text = "\n".join(_all_docx_strings(METHODOLOGY_DOCX_PATH))
-    assert "BloomPix v1.1.1" in all_text
-    assert "BloomPix v1.1.1" in "\n".join(_all_docx_strings(SOP_DOCX_PATH))
+    assert "BloomPix v1.1.2" in all_text
+    assert "BloomPix v1.1.2" in "\n".join(_all_docx_strings(SOP_DOCX_PATH))
 
     expected_terms = [
         "Geom_Bloom_Index",
@@ -145,3 +145,64 @@ def test_methodology_contains_native_omml_equations() -> None:
     )
     assert dsc_tbl_idx is not None and dsc_eq_idx is not None
     assert dsc_tbl_idx < dsc_eq_idx, "DSC summary table must appear before Section 5 DSC OMML equations"
+
+
+def test_every_omml_equation_followed_by_unbulleted_where_block() -> None:
+    m_ns = "http://schemas.openxmlformats.org/officeDocument/2006/math"
+    w_ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    with zipfile.ZipFile(METHODOLOGY_DOCX_PATH, "r") as zf:
+        xml_bytes = zf.read("word/document.xml")
+
+    root = ET.fromstring(xml_bytes)
+    body = root.find(f"{{{w_ns}}}body")
+    assert body is not None
+    children = list(body)
+
+    def _p_text(el: ET.Element) -> str:
+        return "".join(t.text or "" for t in el.findall(f".//{{{w_ns}}}t")).strip()
+
+    eq_indices = [
+        idx
+        for idx, el in enumerate(children)
+        if el.tag == f"{{{w_ns}}}p" and el.find(f".//{{{m_ns}}}oMathPara") is not None
+    ]
+    where_indices = [
+        idx
+        for idx, el in enumerate(children)
+        if el.tag == f"{{{w_ns}}}p" and _p_text(el) == "Where"
+    ]
+
+    assert len(eq_indices) == 30, f"Expected 30 OMML equations, found {len(eq_indices)}"
+    assert len(where_indices) == len(eq_indices), (
+        f"Mismatch between OMML equations ({len(eq_indices)}) and 'Where' blocks ({len(where_indices)})"
+    )
+
+    for eq_idx in eq_indices:
+        assert eq_idx + 2 < len(children), f"Equation at index {eq_idx} missing following 'Where' block"
+        lead_el = children[eq_idx + 1]
+        assert lead_el.tag == f"{{{w_ns}}}p"
+        assert _p_text(lead_el) == "Where", (
+            f"Paragraph right after equation {eq_idx} must be 'Where', got '{_p_text(lead_el)}'"
+        )
+
+        # Verify every unbulleted nomenclature item in this Where block
+        j = eq_idx + 2
+        item_count = 0
+        while j < len(children) and children[j].tag == f"{{{w_ns}}}p":
+            el = children[j]
+            txt = _p_text(el)
+            pPr = el.find(f"{{{w_ns}}}pPr")
+            ind = pPr.find(f"{{{w_ns}}}ind") if pPr is not None else None
+            has_left_ind = ind is not None and (
+                ind.get(f"{{{w_ns}}}left") is not None
+            )
+            if not (" — " in txt and has_left_ind):
+                break
+            numPr = pPr.find(f"{{{w_ns}}}numPr") if pPr is not None else None
+            assert numPr is None, f"Where item must not use numbered/bulleted XML list: {txt}"
+            assert not txt.startswith(("•", "- ")), f"Where item must not start with bullet character: {txt}"
+            assert not _RAW_LATEX_RE.search(txt), f"Raw LaTeX backslash in Where item: {txt}"
+            item_count += 1
+            j += 1
+
+        assert item_count >= 1, f"Where block after equation {eq_idx} has zero variable definitions"

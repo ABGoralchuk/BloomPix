@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 APP_NAME = "BloomPix"
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.1.2"
 FALLBACK_DATE = "2026-11-26"
 
 

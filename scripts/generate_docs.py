@@ -312,7 +312,8 @@ def add_omml_equation(doc: Document, *nodes: MathArg) -> None:
     p.paragraph_format.left_indent = Inches(0.25)
     p.paragraph_format.right_indent = Inches(0.25)
     p.paragraph_format.space_before = Pt(5)
-    p.paragraph_format.space_after = Pt(7)
+    p.paragraph_format.space_after = Pt(4)
+    p.paragraph_format.keep_with_next = True
 
     pPr = p._p.get_or_add_pPr()
     shd = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{LIGHT_BG_HEX}"/>')
@@ -339,6 +340,42 @@ def add_omml_equation(doc: Document, *nodes: MathArg) -> None:
         _append_nodes(omath, node)
     omath_para.append(omath)
     p._p.append(omath_para)
+
+
+def add_where_block(doc: Document, definitions: list[tuple[str, str]]) -> None:
+    """Insert an unbulleted academic nomenclature ('Where') block after an equation."""
+    if not definitions:
+        return
+
+    p_lead = doc.add_paragraph()
+    p_lead.paragraph_format.left_indent = Inches(0)
+    p_lead.paragraph_format.space_before = Pt(2)
+    p_lead.paragraph_format.space_after = Pt(2)
+    p_lead.paragraph_format.keep_with_next = True
+    r_lead = p_lead.add_run("Where")
+    r_lead.font.name = "Calibri"
+    r_lead.font.size = Pt(10)
+    r_lead.font.color.rgb = DARK
+
+    last_idx = len(definitions) - 1
+    for idx, (symbol, description) in enumerate(definitions):
+        p = doc.add_paragraph()
+        p.paragraph_format.left_indent = Inches(0.25)
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(6) if idx == last_idx else Pt(2)
+        p.paragraph_format.line_spacing = 1.12
+
+        r_sym = p.add_run(symbol)
+        r_sym.bold = True
+        r_sym.font.name = "Cambria Math"
+        r_sym.font.size = Pt(10)
+        r_sym.font.color.rgb = NAVY
+
+        r_desc = p.add_run(f" — {description}")
+        r_desc.bold = False
+        r_desc.font.name = "Calibri"
+        r_desc.font.size = Pt(10)
+        r_desc.font.color.rgb = DARK
 
 
 def _init_doc(title: str, subtitle: str) -> Document:
@@ -487,7 +524,7 @@ def _add_table(doc: Document, headers: list[str], rows: list[list[str]]) -> None
 
 def build_methodology_docx(out_path: Path) -> None:
     doc = _init_doc(
-        "BloomPix v1.1.1 — Scientific Methodology & Mathematical Reference",
+        "BloomPix v1.1.2 — Scientific Methodology & Mathematical Reference",
         "Publication-Grade SEM Fat-Bloom Metrology, Brightness/Contrast-Invariant Roughness, Kinetic Modeling & DSC",
     )
 
@@ -519,10 +556,13 @@ def build_methodology_docx(out_path: Path) -> None:
         m_frac([m_op("Δ"), m_var("x")], m_rad(m_op("12"))),
         m_op("   [µm]"),
     )
-    _add_body(
+    add_where_block(
         doc,
-        "Here u_raster is the fundamental single-pixel uniform raster quantization uncertainty (rectangular "
-        "distribution of pixel pitch Δx = µm/px).",
+        [
+            ("u_raster", "fundamental single-pixel uniform raster quantization uncertainty [µm]"),
+            ("Δx", "calibrated physical pixel pitch (PixelWidth) [µm/px]"),
+            ("√12", "standard deviation divisor of a uniform rectangular quantization distribution [dimensionless]"),
+        ],
     )
 
     # Section 2
@@ -552,6 +592,12 @@ def build_methodology_docx(out_path: Path) -> None:
                 [m_op("1"), m_op("−2"), m_op("1")],
             ]
         ),
+    )
+    add_where_block(
+        doc,
+        [
+            ("K_Im", "Immerkaer (1996) 3×3 zero-mean Laplacian noise-estimation convolution kernel [dimensionless]"),
+        ],
     )
     add_omml_equation(
         doc,
@@ -589,12 +635,23 @@ def build_methodology_docx(out_path: Path) -> None:
             ]
         ),
     )
+    add_where_block(
+        doc,
+        [
+            ("σ_noise", "estimated high-frequency detector shot and electronic noise standard deviation [intensity units]"),
+            ("I", "raw databar-cropped SEM grayscale intensity image [intensity units]"),
+            ("*", "2D discrete spatial convolution operator"),
+            ("0.6745", "Gaussian Median Absolute Deviation (MAD) to standard deviation scaling constant [dimensionless]"),
+            ("6", "L2 norm (√36) of the Immerkaer kernel K_Im [dimensionless]"),
+            ("10⁻⁹", "numerical stability floor preventing division by zero on constant synthetic images [intensity units]"),
+        ],
+    )
     _add_body(
         doc,
-        "Affine Invariance Proof: Under manual SEM brightness/contrast adjustment I'(x, y) = a · I(x, y) + b "
-        "(with gain a > 0 and offset b), the zero-sum kernel eliminates b identically (b * K_Im = 0) and scales "
-        "linearly with a. Because macro illumination tilt is removed by Gaussian background subtraction and all "
-        "physical relief metrics are divided by σ_noise, both a and b cancel identically:",
+        "Affine Invariance Proof: Under manual SEM brightness/contrast adjustment, the zero-sum kernel eliminates "
+        "additive offset identically (b * K_Im = 0) and scales linearly with contrast gain. Because macro "
+        "illumination tilt is removed by Gaussian background subtraction and all physical relief metrics are divided "
+        "by detector noise, both gain and offset cancel identically:",
     )
     add_omml_equation(
         doc,
@@ -611,6 +668,17 @@ def build_methodology_docx(out_path: Path) -> None:
         m_var("a"),
         m_op(" ⋅ "),
         m_sub(m_var("σ"), m_op("noise")),
+    )
+    add_where_block(
+        doc,
+        [
+            ("I′", "SEM intensity image after manual linear brightness/contrast adjustment [intensity units]"),
+            ("I", "original unadjusted databar-cropped SEM intensity image [intensity units]"),
+            ("a", "manual SEM contrast gain factor (a > 0) [dimensionless]"),
+            ("b", "manual SEM brightness offset [intensity units]"),
+            ("σ′_noise", "estimated detector noise standard deviation of the adjusted image I′ [intensity units]"),
+            ("σ_noise", "estimated detector noise standard deviation of the original image I [intensity units]"),
+        ],
     )
     add_omml_equation(
         doc,
@@ -629,12 +697,20 @@ def build_methodology_docx(out_path: Path) -> None:
         m_sub(m_var("G"), m_sub(m_var("σ"), m_op("topo"))),
         m_delim([m_sub(m_var("I"), m_op("flat"))]),
     )
+    add_where_block(
+        doc,
+        [
+            ("I_flat(x, y)", "background-flattened SEM intensity at pixel coordinates (x, y) with macro charging/tilt removed [intensity units]"),
+            ("I(x, y)", "raw databar-cropped SEM intensity at pixel coordinates (x, y) [intensity units]"),
+            ("G_σ_bg", "macro background Gaussian smoothing operator with σ_bg = 0.12 × max(H, W) [px]"),
+            ("I_topo(x, y)", "gently denoised topographic SEM intensity field used for relief, slope, and ridge evaluation [intensity units]"),
+            ("G_σ_topo", "denoising Gaussian filter with σ_topo = max(1.2 px, 0.16 µm / Δx) suppressing sub-pixel detector noise [px]"),
+        ],
+    )
     _add_body(
         doc,
-        "Here σ_bg = 0.12 × max(H, W) pixels removes low-frequency charging/tilt gradients, and "
-        "σ_topo = max(1.2 px, 0.16 µm / Δx) gently suppresses sub-pixel detector noise before gradient and "
-        "topographic evaluation. Display enhancement (1st–99th percentile contrast stretching to [0, 1]) is "
-        "strictly isolated for visual rendering and is never passed into any measurement function.",
+        "Display enhancement (1st–99th percentile contrast stretching to [0, 1]) is strictly isolated for visual "
+        "rendering and is never passed into any measurement function.",
     )
 
     # Section 3
@@ -656,6 +732,14 @@ def build_methodology_docx(out_path: Path) -> None:
             m_sub(m_var("σ"), m_op("noise")),
         ),
     )
+    add_where_block(
+        doc,
+        [
+            ("TRNR_Relief", "Topographic Relief-to-Noise Ratio, global amplitude proxy for AFM Sq roughness [dimensionless]"),
+            ("std(I_topo)", "standard deviation of denoised topographic intensity I_topo over valid unmasked pixels [intensity units]"),
+            ("σ_noise", "Immerkaer detector noise standard deviation [intensity units]"),
+        ],
+    )
     add_omml_equation(
         doc,
         m_sub(m_var("σ"), m_op("loc")),
@@ -670,6 +754,15 @@ def build_methodology_docx(out_path: Path) -> None:
                 m_frac([m_op("min"), m_delim([m_var("H"), m_op(", "), m_var("W")])], m_op("16")),
             ]
         ),
+    )
+    add_where_block(
+        doc,
+        [
+            ("σ_loc", "isotropic Gaussian smoothing standard deviation for the Pseudo-AFM local roughness map [px]"),
+            ("1.0 µm", "fixed physical isotropic Pseudo-AFM smoothing radius [µm]"),
+            ("Δx", "calibrated physical pixel pitch [µm/px]"),
+            ("H, W", "cropped SEM micrograph height and width [px]"),
+        ],
     )
     add_omml_equation(
         doc,
@@ -705,6 +798,15 @@ def build_methodology_docx(out_path: Path) -> None:
             m_sub(m_var("σ"), m_op("noise")),
         ),
     )
+    add_where_block(
+        doc,
+        [
+            ("LocTRNR(x, y)", "local Pseudo-AFM roughness value at pixel (x, y) [dimensionless]"),
+            ("G_σ_loc", "isotropic Gaussian spatial averaging operator with kernel radius σ_loc [px]"),
+            ("I_topo", "denoised topographic SEM intensity image [intensity units]"),
+            ("σ_noise", "Immerkaer detector noise standard deviation [intensity units]"),
+        ],
+    )
     add_omml_equation(
         doc,
         m_sub(m_op("Bloom_Coverage"), m_op("%")),
@@ -721,12 +823,19 @@ def build_methodology_docx(out_path: Path) -> None:
         ),
         m_op("   [%]"),
     )
+    add_where_block(
+        doc,
+        [
+            ("Bloom_Coverage_%", "percentage of valid unmasked chocolate surface area classified as bloomed [%]"),
+            ("LocTRNR(x, y)", "local Pseudo-AFM roughness value at pixel (x, y) [dimensionless]"),
+            ("T_ctrl,95", "95th percentile of LocTRNR across all valid pixels of Week 0 control scans for the active magnification scale [dimensionless]"),
+        ],
+    )
     _add_body(
         doc,
-        "Using an isotropic Gaussian spatial kernel (σ_loc = 1.0 µm, ≈ 9.3 px at 50 µm and 4.0 px at 200 µm) "
-        "eliminates square boxcar directional ringing and produces smooth Pseudo-AFM topography maps. The threshold "
-        "T_ctrl,95 is calibrated per magnification scale as the 95th percentile of LocTRNR across all valid "
-        "pixels of Week 0 control micrographs, anchoring fresh tempered chocolate to ≈ 5.0% baseline coverage.",
+        "Using an isotropic Gaussian spatial kernel (≈ 9.3 px at 50 µm and 4.0 px at 200 µm) eliminates square "
+        "boxcar directional ringing and produces smooth Pseudo-AFM topography maps while anchoring fresh tempered "
+        "chocolate to ≈ 5.0% baseline coverage.",
     )
 
     _add_h2(doc, "3.2 Mesoscale Bandpass, Slope, Ridge & Structure Tensor Descriptors")
@@ -750,10 +859,15 @@ def build_methodology_docx(out_path: Path) -> None:
             m_sub(m_var("σ"), m_op("noise")),
         ),
     )
-    _add_body(
+    add_where_block(
         doc,
-        "where σ_small = max(1.5 px, 0.27 µm / Δx) and σ_large = max(10.0 px, 2.7 µm / Δx) isolate "
-        "crystal-cluster relief from background drift.",
+        [
+            ("Meso_SNR", "mesoscale Difference-of-Gaussians (DoG) crystal-cluster relief-to-noise ratio [dimensionless]"),
+            ("G_σ_small", "fine-scale Gaussian operator with σ_small = max(1.5 px, 0.27 µm / Δx) [px]"),
+            ("G_σ_large", "coarse-scale Gaussian operator with σ_large = max(10.0 px, 2.7 µm / Δx) [px]"),
+            ("I_flat", "background-flattened SEM intensity image [intensity units]"),
+            ("σ_noise", "Immerkaer detector noise standard deviation [intensity units]"),
+        ],
     )
     add_omml_equation(
         doc,
@@ -774,6 +888,14 @@ def build_methodology_docx(out_path: Path) -> None:
             ),
             m_sub(m_var("σ"), m_op("noise")),
         ),
+    )
+    add_where_block(
+        doc,
+        [
+            ("Grad_SNR", "noise-normalized root-mean-square topographic gradient, proxy for AFM Sdq slope [dimensionless]"),
+            ("G_x, G_y", "horizontal and vertical Scharr spatial derivatives of I_topo [intensity units/px]"),
+            ("σ_noise", "Immerkaer detector noise standard deviation [intensity units]"),
+        ],
     )
     add_omml_equation(
         doc,
@@ -805,10 +927,15 @@ def build_methodology_docx(out_path: Path) -> None:
             ]
         ),
     )
-    _add_body(
+    add_where_block(
         doc,
-        "with physical Sato Hessian ridge scales [max(1.2 px, 0.16/Δx), max(2.2 px, 0.32/Δx), "
-        "max(3.5 px, 0.54/Δx)] detecting bright protruding fat-bloom crystal needles and blades.",
+        [
+            ("Blade_Index", "mean multiscale ridge response quantifying bright protruding fat-bloom crystal needles and blades [dimensionless]"),
+            ("Sato(·)", "multiscale Sato Hessian tubeness/ridge filter for bright linear structures [dimensionless]"),
+            ("σ_1, σ_2, σ_3", "physical ridge scales corresponding to 0.16, 0.32, and 0.54 µm (clamped in pixels to max(1.2 px, 0.16/Δx), max(2.2 px, 0.32/Δx), and max(3.5 px, 0.54/Δx)) [px]"),
+            ("I_topo", "denoised topographic SEM intensity image [intensity units]"),
+            ("σ_noise", "Immerkaer detector noise standard deviation [intensity units]"),
+        ],
     )
     add_omml_equation(
         doc,
@@ -837,11 +964,12 @@ def build_methodology_docx(out_path: Path) -> None:
             ]
         ),
     )
-    _add_body(
+    add_where_block(
         doc,
-        "where J is the Gaussian-smoothed Structure Tensor (σ_st = max(2.5 px, 0.38 µm / Δx)) computed on "
-        "noise-normalized topography (denominator guarded with max(..., 10⁻¹²)). Coherency C ∈ [0, 1] is "
-        "strictly noise-independent and measures directional crystal blade alignment.",
+        [
+            ("Anisotropy_Coh", "noise-independent mean Structure Tensor coherency measuring directional crystal blade alignment [0–1, dimensionless]"),
+            ("J_xx, J_yy, J_xy", "components of the Gaussian-smoothed Structure Tensor computed on noise-normalized topography with σ_st = max(2.5 px, 0.38 µm / Δx) (denominator guarded by max(J_xx + J_yy, 10⁻¹²))"),
+        ],
     )
 
     _add_h2(doc, "3.3 2D FFT Radial PSD, Spatial Correlation Length & Composite Bloom Index (CBI)")
@@ -866,6 +994,18 @@ def build_methodology_docx(out_path: Path) -> None:
             ]
         ),
     )
+    add_where_block(
+        doc,
+        [
+            ("f_µm⁻¹", "calibrated physical radial spatial frequency [µm⁻¹]"),
+            ("f_px", "radial 2D FFT spatial frequency bin index [cycles/window]"),
+            ("N_ref", "2D FFT window dimension [px]"),
+            ("Δx", "calibrated physical pixel pitch [µm/px]"),
+            ("PSD_logSNR", "base-10 logarithmic ratio of structural to noise radial spectral power [log₁₀, dimensionless]"),
+            ("PSD[f_struct]", "azimuthally averaged radial power spectral density across the mid-frequency structural band"),
+            ("PSD[f_noise]", "azimuthally averaged radial power spectral density across the high-frequency detector noise band"),
+        ],
+    )
     add_omml_equation(
         doc,
         m_sub(m_op("log"), m_op("10")),
@@ -885,6 +1025,16 @@ def build_methodology_docx(out_path: Path) -> None:
         m_op("] ⋅ Δ"),
         m_var("f"),
     )
+    add_where_block(
+        doc,
+        [
+            ("PSD(f)", "azimuthally averaged 2D radial power spectral density at spatial frequency f"),
+            ("f", "calibrated physical radial spatial frequency [µm⁻¹]"),
+            ("β", "mid-band power-law spectral decay slope (PSD_Beta) characterizing surface scaling [dimensionless]"),
+            ("c", "ordinary least-squares log-log regression intercept [dimensionless]"),
+            ("r_max, Δf", "maximum radial Nyquist bin index [px] and physical frequency bin spacing Δf = 1 / (N_ref · Δx) [µm⁻¹]"),
+        ],
+    )
     add_omml_equation(
         doc,
         m_sub(m_var("L"), m_op("corr")),
@@ -893,6 +1043,14 @@ def build_methodology_docx(out_path: Path) -> None:
         m_op(" ⋅ Δ"),
         m_var("x"),
         m_op("   [µm]"),
+    )
+    add_where_block(
+        doc,
+        [
+            ("L_corr", "characteristic spatial correlation length (Corr_Len_um) of crystal domains [µm]"),
+            ("r_1/e", "radial lag where the normalized 2D autocorrelation function decays to 1/e ≈ 0.368 [px]"),
+            ("Δx", "calibrated physical pixel pitch [µm/px]"),
+        ],
     )
     add_omml_equation(
         doc,
@@ -917,6 +1075,16 @@ def build_methodology_docx(out_path: Path) -> None:
             ],
         ),
     )
+    add_where_block(
+        doc,
+        [
+            ("CBI", "Composite Bloom Index anchored to ≈ 0 for Week 0 controls and uncapped above 100 for severe late-stage blooming [pts]"),
+            ("m", "index over the 8 core monotonic bloom metrics (TRNR_Relief, LocTRNR_Med, Meso_SNR, Grad_SNR, Blade_Index, Anisotropy_Coh, PSD_Struct_logSNR, Corr_Len_um)"),
+            ("x_m", "measured image value of metric m"),
+            ("μ_m,ctrl", "Week 0 control mean value of metric m for the active magnification scale"),
+            ("P_95,m", "95th percentile upper normalization anchor of metric m across all valid non-HV-mismatched scans"),
+        ],
+    )
     add_omml_equation(
         doc,
         m_op("Geom_Bloom_Index"),
@@ -940,12 +1108,15 @@ def build_methodology_docx(out_path: Path) -> None:
             ],
         ),
     )
-    _add_body(
+    add_where_block(
         doc,
-        "CORE_8 comprises [TRNR_Relief, LocTRNR_Med, Meso_SNR, Grad_SNR, Blade_Index, Anisotropy_Coh, "
-        "PSD_Struct_logSNR, Corr_Len_um], anchoring Week 0 control to CBI ≈ 0 while remaining uncapped above 100 "
-        "to resolve severe late-stage blooming. Geom_Bloom_Index averages the normalized score across the noise-free "
-        "geometric subset [Anisotropy_Coh, Corr_Len_um, PSD_Beta] as an HV-resilient cross-check.",
+        [
+            ("Geom_Bloom_Index", "HV-resilient geometric/spectral bloom index serving as a noise-free cross-check against CBI [pts]"),
+            ("g", "index over the 3 noise-free geometric/spectral metrics (Anisotropy_Coh, Corr_Len_um, PSD_Beta)"),
+            ("x_g", "measured image value of geometric metric g"),
+            ("μ_g,ctrl", "Week 0 control mean value of metric g for the active magnification scale"),
+            ("P_95,g", "95th percentile upper normalization anchor of metric g across all valid non-HV-mismatched scans"),
+        ],
     )
 
     _add_table(
@@ -997,6 +1168,19 @@ def build_methodology_docx(out_path: Path) -> None:
         m_op("max"),
         m_delim([m_op("0,  "), m_sub(m_var("t"), m_op("1/2")), m_op(" − "), m_frac(m_op("2.197"), m_var("k"))]),
     )
+    add_where_block(
+        doc,
+        [
+            ("y(t)", "modeled bloom metric value at storage time t [metric units]"),
+            ("t", "storage duration [weeks]"),
+            ("y_0", "lower baseline asymptote corresponding to fresh tempered chocolate [metric units]"),
+            ("y_max", "upper saturation plateau asymptote of mature fat bloom [metric units]"),
+            ("k", "logistic growth rate constant [weeks⁻¹]"),
+            ("t_1/2", "inflection / half-maximal bloom time where y(t_1/2) = (y_0 + y_max) / 2 [weeks]"),
+            ("t_lag", "analytical 10%-rise bloom induction lag time [weeks]"),
+            ("2.197", "exact logistic 10%-amplitude crossing factor ln(9) ≈ 2.197 [dimensionless]"),
+        ],
+    )
     add_omml_equation(
         doc,
         m_sub(m_op("AUC"), m_op("norm")),
@@ -1008,6 +1192,14 @@ def build_methodology_docx(out_path: Path) -> None:
             m_sub(m_var("t"), m_op("max")),
             [m_var("y"), m_delim([m_var("t")]), m_op(" "), m_var("dt")],
         ),
+    )
+    add_where_block(
+        doc,
+        [
+            ("AUC_norm", "time-normalized area under the kinetic progression curve used for objective treatment ranking [metric units]"),
+            ("t_min, t_max", "first and last fitted storage timepoints [weeks]"),
+            ("y(t)", "kinetic trajectory of the selected bloom metric as a function of storage week t [metric units]"),
+        ],
     )
     _add_body(
         doc,
@@ -1093,6 +1285,14 @@ def build_methodology_docx(out_path: Path) -> None:
         m_op(" ⋅ "),
         m_delim([m_var("T"), m_op(" − "), m_sub(m_var("T"), m_op("lo"))]),
     )
+    add_where_block(
+        doc,
+        [
+            ("HF_base(T)", "linearly interpolated thermal baseline heat flow at temperature T [W/g]"),
+            ("T", "sample temperature [°C]"),
+            ("(T_lo, HF_lo), (T_hi, HF_hi)", "automatically detected or manually overridden pre-melting and post-melting baseline anchor coordinates [°C, W/g]"),
+        ],
+    )
     # 2. Positive Endothermic Signal
     add_omml_equation(
         doc,
@@ -1105,6 +1305,14 @@ def build_methodology_docx(out_path: Path) -> None:
         m_op("HF"),
         m_delim([m_var("T")]),
         m_op("   [W/g]"),
+    )
+    add_where_block(
+        doc,
+        [
+            ("endo(T)", "positive endothermic melting heat-flow signal above the linear baseline [W/g]"),
+            ("HF_base(T)", "linearly interpolated baseline heat flow at temperature T [W/g]"),
+            ("HF(T)", "measured normalized DSC heat flow (endothermic down convention) [W/g]"),
+        ],
     )
     # 3. Melting Peak Temperature
     add_omml_equation(
@@ -1119,6 +1327,13 @@ def build_methodology_docx(out_path: Path) -> None:
         m_sub(m_op("endo"), m_op("smooth")),
         m_delim([m_var("T")]),
         m_op("   [°C]"),
+    )
+    add_where_block(
+        doc,
+        [
+            ("T_peak", "peak maximum melting temperature of the endothermic transition [°C]"),
+            ("endo_smooth(T)", "Gaussian-smoothed endothermic signal (σ = 6 grid points) on the 1000-point uniform temperature grid inside [T_lo, T_hi] [W/g]"),
+        ],
     )
     # 4. Extrapolated Onset & Endset Temperatures (ASTM E794)
     add_omml_equation(
@@ -1136,6 +1351,14 @@ def build_methodology_docx(out_path: Path) -> None:
         ),
         m_op("   [°C]"),
     )
+    add_where_block(
+        doc,
+        [
+            ("T_onset", "ASTM E794 extrapolated melting onset temperature [°C]"),
+            ("T*_lead", "temperature of maximum rising slope on the leading peak edge within 20%–80% of peak height [°C]"),
+            ("d endo_smooth / dT", "first temperature derivative of the smoothed endothermic signal [W/(g·°C)]"),
+        ],
+    )
     add_omml_equation(
         doc,
         m_sub(m_var("T"), m_op("endset")),
@@ -1150,6 +1373,14 @@ def build_methodology_docx(out_path: Path) -> None:
             ),
         ),
         m_op("   [°C]"),
+    )
+    add_where_block(
+        doc,
+        [
+            ("T_endset", "ASTM E794 extrapolated melting completion temperature [°C]"),
+            ("T*_trail", "temperature of steepest falling slope on the trailing peak edge within 20%–80% of peak height [°C]"),
+            ("d endo_smooth / dT", "first temperature derivative of the smoothed endothermic signal [W/(g·°C)]"),
+        ],
     )
     # 5. Melting Range Width & FWHM
     add_omml_equation(
@@ -1167,6 +1398,14 @@ def build_methodology_docx(out_path: Path) -> None:
         m_op(" − "),
         m_sub(m_var("T"), m_op("left,0.5")),
         m_op("   [°C]"),
+    )
+    add_where_block(
+        doc,
+        [
+            ("ΔT", "total extrapolated melting range width [°C]"),
+            ("FWHM", "Full Width at Half Maximum of the endothermic melting peak [°C]"),
+            ("T_left,0.5, T_right,0.5", "leading and trailing temperatures where endo_smooth(T) crosses 50% of peak height [°C]"),
+        ],
     )
     # 6. Specific Melting Enthalpy (t = time_min * 60 s) & High-Melting Fraction
     add_omml_equation(
@@ -1203,6 +1442,15 @@ def build_methodology_docx(out_path: Path) -> None:
         ),
         m_op(" × 100%"),
     )
+    add_where_block(
+        doc,
+        [
+            ("ΔH", "total specific melting enthalpy integrated over time (W/g × s = J/g) [J/g]"),
+            ("t_lo, t_hi", "elapsed timestamps corresponding to T_lo and T_hi, where t = time_min × 60 [s]"),
+            ("F_>34°C", "high-melting enthalpy fraction above cutoff (default 34.0 °C) [%]"),
+            ("ΔH_T≥34°C", "partial specific melting enthalpy integrated for T ≥ 34.0 °C [J/g]"),
+        ],
+    )
     # 7. Automatic Baseline Overshoot QC Criterion
     add_omml_equation(
         doc,
@@ -1228,6 +1476,15 @@ def build_methodology_docx(out_path: Path) -> None:
             ],
         ),
         m_op("   [%]"),
+    )
+    add_where_block(
+        doc,
+        [
+            ("Overshoot_%", "percentage of thermogram samples inside [T_lo, T_hi] exceeding the linear baseline beyond noise tolerance [%]"),
+            ("N", "number of temperature points inside [T_lo, T_hi] [dimensionless]"),
+            ("𝕀(·)", "indicator function equal to 1 when the condition holds and 0 otherwise [dimensionless]"),
+            ("0.004 W/g", "detector noise tolerance margin above the linear baseline [W/g]"),
+        ],
     )
     # 8. Pearson r and Spearman rho
     add_omml_equation(
@@ -1266,6 +1523,15 @@ def build_methodology_docx(out_path: Path) -> None:
             ],
         ),
     )
+    add_where_block(
+        doc,
+        [
+            ("r", "Pearson product-moment linear correlation coefficient [−1 to +1, dimensionless]"),
+            ("x_i, y_i", "matched weekly mean SEM metric and DSC parameter for pair i"),
+            ("x̄, ȳ", "sample means of the matched SEM and DSC vectors"),
+            ("n", "number of matched (treatment, week) pairs (evaluated for n ≥ 3) [dimensionless]"),
+        ],
+    )
     add_omml_equation(
         doc,
         m_var("ρ"),
@@ -1283,11 +1549,16 @@ def build_methodology_docx(out_path: Path) -> None:
             [m_var("n"), m_delim([m_sup(m_var("n"), m_op("2")), m_op(" − 1")])],
         ),
     )
+    add_where_block(
+        doc,
+        [
+            ("ρ", "Spearman rank-order monotonic correlation coefficient (tie-adjusted via scipy.stats.spearmanr when ties occur) [−1 to +1, dimensionless]"),
+            ("d_i", "rank difference between x_i and y_i for matched pair i [dimensionless]"),
+            ("n", "number of matched (treatment, week) pairs (evaluated for n ≥ 3) [dimensionless]"),
+        ],
+    )
     _add_body(
         doc,
-        "After light Gaussian smoothing (σ = 6 grid points across a 1000-point uniform grid in [T_lo, T_hi]), "
-        "ASTM E794 extrapolated T_onset_C and T_endset_C are evaluated at the steepest positive and negative "
-        "tangents within the 20%–80% peak-height edges (time t = time_min × 60 s for W/g × s = J/g integration). "
         "For SEM × DSC correlation, replicate parameters are aggregated per (treatment, week), inner-joined with "
         "SEM metrics (Pooled or Per-Treatment Within-Group Aging, excluding HV-mismatched weeks per sidebar policy), "
         "and evaluated for pairs with n ≥ 3 observations; scipy.stats.spearmanr applies exact tie-adjusted rank "
@@ -1307,7 +1578,7 @@ def build_methodology_docx(out_path: Path) -> None:
 
 def build_sop_docx(out_path: Path) -> None:
     doc = _init_doc(
-        "BloomPix v1.1.1 — Standard Operating Procedure (SOP)",
+        "BloomPix v1.1.2 — Standard Operating Procedure (SOP)",
         "Laboratory & Workstation Guide for SEM Chocolate Fat-Bloom & DSC Analysis (5-Tab Workflow)",
     )
 
