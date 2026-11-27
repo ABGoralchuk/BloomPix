@@ -18,11 +18,10 @@ from core.kinetics import aggregate_kinetics_table
 from ui import plot_utils, state
 
 
-def _run_dsc_scan(dsc_dir: str, cutoff_c: float) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, dict[str, object]]]:
+def _run_dsc_scan(dsc_dir: str) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, dict[str, object]]]:
     """Run raw TA Instruments DSC scan with smart auto-baseline and active per-file overrides."""
     rep_df, agg_dsc_df, curves = scan_and_analyze_dsc_folder(
         dsc_dir,
-        beta6_cutoff_C=float(cutoff_c),
         auto_baseline=True,
         per_file_overrides=state.get_dsc_per_file_overrides(),
     )
@@ -34,7 +33,6 @@ def _render_per_file_override_controls(
     rep_df: pd.DataFrame,
     review_files: list[str],
     dsc_dir: str,
-    cutoff_c: float,
     allow_all_default: bool = False,
 ) -> None:
     """Render targeted per-file baseline override sliders and immediate recompute buttons."""
@@ -106,7 +104,7 @@ def _render_per_file_override_controls(
     with b1:
         if st.button("Apply Override & Recompute", key="dsc_apply_override", width="stretch"):
             state.set_dsc_file_override(sel_file, ov_low, ov_high)
-            _run_dsc_scan(dsc_dir, cutoff_c)
+            _run_dsc_scan(dsc_dir)
             state.set_dsc_override_notice(
                 f"Applied manual override ({ov_low[0]:.1f}–{ov_low[1]:.1f} °C / "
                 f"{ov_high[0]:.1f}–{ov_high[1]:.1f} °C) to {sel_file} and recomputed."
@@ -122,7 +120,7 @@ def _render_per_file_override_controls(
             state.clear_dsc_file_override(sel_file)
             st.session_state.pop(f"dsc_ov_low_{sel_file}", None)
             st.session_state.pop(f"dsc_ov_high_{sel_file}", None)
-            _run_dsc_scan(dsc_dir, cutoff_c)
+            _run_dsc_scan(dsc_dir)
             state.set_dsc_override_notice(
                 f"Reset manual override for {sel_file} back to automatic baseline detection."
             )
@@ -206,7 +204,6 @@ def _render_thermogram_inspector(
                 )
                 ax.axvline(payload["T_onset_C"], color="#D97706", ls=":", lw=1.4, label=f"T_onset = {payload['T_onset_C']:.2f} °C")
                 ax.axvline(payload["T_peak_C"], color="#DC2626", ls="-.", lw=1.4, label=f"T_peak = {payload['T_peak_C']:.2f} °C")
-                ax.axvline(payload["T_endset_C"], color="#059669", ls=":", lw=1.4, label=f"T_endset = {payload['T_endset_C']:.2f} °C")
         qc_tag = str(row.get("qc_flag", row["qc_status"]))
         bim_tag = " | Bimodal" if bool(row.get("is_bimodal", False)) else ""
         ax.set_title(
@@ -363,25 +360,13 @@ def render() -> None:
     )
 
     if mode == "Raw TA Instruments DSC Folder (.txt)":
-        c_dir, c_cut, c_btn = st.columns([3.2, 1.1, 1.4], vertical_alignment="bottom")
+        c_dir, c_btn = st.columns([3.5, 1.5], vertical_alignment="bottom")
         with c_dir:
             dsc_dir_input = st.text_input(
                 "DSC Thermogram Folder",
                 value=state.get_dsc_dir(),
                 help="Folder containing TA Instruments .txt files named like <treatment>W<week>r<rep>.txt",
             )
-        with c_cut:
-            cutoff_c = float(
-                st.number_input(
-                    "High-Melt Cutoff (°C)",
-                    min_value=30.0,
-                    max_value=38.0,
-                    value=state.get_dsc_cutoff_c(),
-                    step=0.5,
-                    key="dsc_cutoff",
-                )
-            )
-            state.set_dsc_cutoff_c(cutoff_c)
         with c_btn:
             scan_dsc_btn = st.button("🔥 Scan & Analyze Raw DSC Folder", type="primary", width="stretch")
 
@@ -389,7 +374,7 @@ def render() -> None:
             state.set_dsc_dir(dsc_dir_input.strip() or "DSC")
             try:
                 with st.spinner("Auto-detecting DSC baselines and integrating TA Instruments thermograms..."):
-                    rep_df, _, _ = _run_dsc_scan(state.get_dsc_dir(), cutoff_c)
+                    rep_df, _, _ = _run_dsc_scan(state.get_dsc_dir())
                 st.success(f"Parsed {len(rep_df)} DSC files from '{state.get_dsc_dir()}'.")
             except Exception as exc:
                 st.error(f"Failed to scan DSC folder: {exc}")
@@ -457,7 +442,6 @@ def render() -> None:
                         rep_df,
                         review_files=[],
                         dsc_dir=state.get_dsc_dir(),
-                        cutoff_c=cutoff_c,
                         allow_all_default=True,
                     )
             else:
@@ -493,7 +477,6 @@ def render() -> None:
                         rep_df,
                         review_files=needs_review_df["filename"].astype(str).tolist(),
                         dsc_dir=state.get_dsc_dir(),
-                        cutoff_c=cutoff_c,
                         allow_all_default=False,
                     )
 
@@ -512,8 +495,8 @@ def render() -> None:
                         "week": 0,
                         "T_onset_C": "",
                         "T_peak_C": "",
+                        "FWHM_C": "",
                         "Delta_H_J_g": "",
-                        "High_Melt_gt34C_pct": "",
                     }
                 )
             for trt in summary.treatments:
@@ -526,8 +509,8 @@ def render() -> None:
                             "week": wk,
                             "T_onset_C": "",
                             "T_peak_C": "",
+                            "FWHM_C": "",
                             "Delta_H_J_g": "",
-                            "High_Melt_gt34C_pct": "",
                         }
                     )
             tmpl_df = pd.DataFrame(tmpl_rows)

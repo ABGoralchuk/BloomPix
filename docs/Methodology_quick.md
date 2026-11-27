@@ -92,17 +92,17 @@ $$HF_{\text{base}}(T) = HF_{\text{lo}} + \frac{HF_{\text{hi}} - HF_{\text{lo}}}{
 
 $$\text{endo}(T) = HF_{\text{base}}(T) - HF(T), \quad T_{\text{peak}} = \arg\max_{T \in [T_{\text{lo}}, T_{\text{hi}}]} \text{endo}_{\text{smooth}}(T)$$
 
-- **ASTM E794 Onset & Endset (`T_onset`, `T_endset`):** Steepest leading ($T^*_{\text{lead}}$) and trailing ($T^*_{\text{trail}}$) tangent baseline intercepts (20–80% peak height):
+- **ASTM E794 Extrapolated Onset (`T_onset`):** Steepest leading-edge ($T^*_{\text{lead}}$) tangent baseline intercept (20–80% peak height):
 
-$$T_{\text{onset}} = T^*_{\text{lead}} - \frac{\text{endo}_{\text{smooth}}(T^*_{\text{lead}})}{(d\,\text{endo}_{\text{smooth}}/dT)\big|_{T^*_{\text{lead}}}}, \quad T_{\text{endset}} = T^*_{\text{trail}} - \frac{\text{endo}_{\text{smooth}}(T^*_{\text{trail}})}{(d\,\text{endo}_{\text{smooth}}/dT)\big|_{T^*_{\text{trail}}}}$$
+$$T_{\text{onset}} = T^*_{\text{lead}} - \frac{\text{endo}_{\text{smooth}}(T^*_{\text{lead}})}{(d\,\text{endo}_{\text{smooth}}/dT)\big|_{T^*_{\text{lead}}}}$$
 
-- **Melting Range (`ΔT`) & Peak Broadening (`FWHM`):** Polymorphic heterogeneity and width at 50% peak height:
+- **Peak Broadening (`FWHM`):** Full Width at Half Maximum at 50% peak height:
 
-$$\Delta T = T_{\text{endset}} - T_{\text{onset}}, \quad \text{FWHM} = T_{\text{right},0.5} - T_{\text{left},0.5}$$
+$$\text{FWHM} = T_{\text{right},0.5} - T_{\text{left},0.5}$$
 
-- **Melting Enthalpy (`ΔH`) & High-Melt Fraction (`F_>34°C`):** Time-integrated crystallinity ($t = \text{time}_{\min} \times 60\ \text{s}$) and $\beta_{\text{VI}}$ proxy above cutoff (default $34.0\,^\circ\text{C}$):
+- **Melting Enthalpy (`ΔH`):** Time-integrated specific melting crystallinity ($t = \text{time}_{\min} \times 60\ \text{s}$):
 
-$$\Delta H = \int_{t_{\text{lo}}}^{t_{\text{hi}}} \max\!\big(HF_{\text{base}}(t) - HF(t),\; 0\big)\,dt \quad [\text{J/g}], \quad F_{>34^\circ\text{C}} = \frac{\Delta H_{T \ge 34^\circ\text{C}}}{\Delta H} \times 100\%$$
+$$\Delta H = \int_{t_{\text{lo}}}^{t_{\text{hi}}} \max\!\big(HF_{\text{base}}(t) - HF(t),\; 0\big)\,dt \quad [\text{J/g}]$$
 
 - **Baseline QC (`Overshoot_%`):** Flags `Review Baseline` only if $\text{Overshoot}_{\%} > 5.0\%$, $T_{\text{onset}} < T_{\text{lo}} + 0.05\,^\circ\text{C}$, or $\Delta H \le 1.0\ \text{J/g}$ (bimodal curves are informational; valid manual overrides become `OK (Manual)`):
 

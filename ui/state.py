@@ -26,7 +26,6 @@ _DEFAULTS: dict[str, Any] = {
     "dsc_agg_df": None,
     "dsc_curves": {},
     "dsc_per_file_overrides": {},
-    "dsc_beta6_cutoff_C": 34.0,
     "dsc_override_notice": None,
     "dsc_corr_df": None,
     "dsc_merged_df": None,
@@ -285,16 +284,6 @@ def set_dsc_file_override(
 def clear_dsc_file_override(filename: str) -> None:
     init_state()
     st.session_state["dsc_per_file_overrides"].pop(str(filename), None)
-
-
-def get_dsc_cutoff_c() -> float:
-    init_state()
-    return float(st.session_state["dsc_beta6_cutoff_C"])
-
-
-def set_dsc_cutoff_c(val: float) -> None:
-    init_state()
-    st.session_state["dsc_beta6_cutoff_C"] = float(val)
 
 
 def set_dsc_override_notice(msg: str) -> None:

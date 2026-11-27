@@ -11,12 +11,14 @@ import pandas as pd
 import pytest
 
 from core.dsc import (
+    DSC_PARAM_COLS,
     compute_dsc_thermodynamics,
     correlate_sem_with_dsc,
     parse_dsc_filename,
     parse_ta_dsc_txt,
     scan_and_analyze_dsc_folder,
 )
+from core.kinetics import AGGREGATE_METRIC_COLS
 
 
 def _write_synthetic_ta_dsc(
@@ -100,14 +102,26 @@ def test_synthetic_ta_dsc_thermodynamics_accuracy(tmp_path: Path) -> None:
     assert len(curve_df) > 1000
 
     params, payload = compute_dsc_thermodynamics(curve_df)
+    assert DSC_PARAM_COLS == ["T_onset_C", "T_peak_C", "FWHM_C", "Delta_H_J_g"]
     assert params["qc_status"] == "OK"
     assert params["T_peak_C"] == pytest.approx(33.5, abs=0.15)
     # Gaussian inflection tangent onset: T_peak - 2 * sigma_c ≈ 31.1 °C
     assert 30.5 <= params["T_onset_C"] <= 32.0
-    assert 35.0 <= params["T_endset_C"] <= 36.5
+    # Gaussian FWHM = 2 * sqrt(2 * ln 2) * sigma_c ≈ 2.35482 * 1.2
+    assert params["FWHM_C"] == pytest.approx(2.35482 * 1.2, rel=0.05)
     assert params["Delta_H_J_g"] == pytest.approx(expected_dh, rel=0.03)
-    # Peak centered at 33.5 °C -> substantial fraction above 34.0 °C
-    assert 25.0 <= params["High_Melt_gt34C_pct"] <= 45.0
+    for removed_key in ("T_endset_C", "Delta_T_C", "High_Melt_gt34C_pct"):
+        assert removed_key not in params
+    assert "T_endset_C" not in payload
+    for qc_key in (
+        "T_lo_used",
+        "T_hi_used",
+        "baseline_overshoot_pct",
+        "is_bimodal",
+        "qc_flag",
+        "baseline_mode",
+    ):
+        assert qc_key in params
     assert payload["qc_status"] == "OK"
 
 
@@ -128,6 +142,12 @@ def test_dsc_folder_incomplete_and_partial_week_sem_correlation(tmp_path: Path) 
     assert len(agg_df) == 4  # Weeks 1, 2, 8, 12
     assert set(agg_df["week"]) == {1, 2, 8, 12}
     assert "DarkChocW8r3.txt" in curves
+    for col in DSC_PARAM_COLS:
+        assert f"{col}_mean" in agg_df.columns
+        assert f"{col}_sd" in agg_df.columns
+    for removed_key in ("T_endset_C", "Delta_T_C", "High_Melt_gt34C_pct"):
+        assert removed_key not in rep_df.columns
+        assert f"{removed_key}_mean" not in agg_df.columns
 
     # Partial-week SEM table (includes Week 0 and Week 16 that are absent in DSC)
     sem_agg_df = pd.DataFrame(
@@ -284,3 +304,40 @@ def test_correlate_sem_with_dsc_hv_exclusion_and_per_treatment() -> None:
     assert len(merged_pt) == 10  # 2 treatments * 5 clean weeks
     assert (corr_pt["n_pairs"] == 5).all()
     assert (corr_pt["pearson_r"] > 0.99).all()
+
+
+def test_correlate_sem_with_dsc_13x4_pairs() -> None:
+    weeks = [0, 1, 2, 4, 8, 12]
+    sem_rows = []
+    dsc_rows = []
+    for idx, wk in enumerate(weeks):
+        sem_rec: dict[str, object] = {
+            "treatment": "ANF",
+            "week": wk,
+            "any_hv_mismatch": False,
+        }
+        for m_i, m in enumerate(AGGREGATE_METRIC_COLS):
+            sem_rec[f"{m}_mean"] = 1.0 + wk * (0.5 + 0.1 * m_i)
+        sem_rows.append(sem_rec)
+
+        dsc_rows.append(
+            {
+                "treatment": "ANF",
+                "week": wk,
+                "T_onset_C_mean": 28.0 + 0.2 * wk,
+                "T_peak_C_mean": 32.0 + 0.25 * wk,
+                "FWHM_C_mean": 3.0 + 0.1 * wk + 0.02 * (idx % 2),
+                "Delta_H_J_g_mean": 85.0 + 1.1 * wk,
+            }
+        )
+
+    corr_df, merged_df = correlate_sem_with_dsc(
+        pd.DataFrame(sem_rows),
+        pd.DataFrame(dsc_rows),
+        exclude_hv_mismatch=True,
+        per_treatment=False,
+    )
+    assert len(AGGREGATE_METRIC_COLS) == 13
+    assert len(merged_df) == len(weeks)
+    assert len(corr_df) == 13 * 4
+    assert sorted(corr_df["dsc_parameter"].unique()) == sorted(DSC_PARAM_COLS)

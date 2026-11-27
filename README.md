@@ -1,4 +1,4 @@
-# BloomPix v1.0.0 — Chocolate Surface SEM Fat-Bloom Analyzer
+# BloomPix v1.1.2 — Chocolate Surface SEM Fat-Bloom Analyzer
 
 Publication-grade scientific application for quantifying fat bloom on chocolate surfaces from Scanning Electron Microscopy (SEM) micrographs using brightness/contrast-invariant surface roughness, smooth isotropic Gaussian Pseudo-AFM heatmaps (`σ = 1.0 µm`), 2D FFT spectral analysis, kinetic modeling, and DSC thermal correlation.
 
@@ -19,7 +19,7 @@ Publication-grade scientific application for quantifying fat bloom on chocolate 
 1. **`1. Data & Metadata`** — Dataset scanning, KPI summary, compact `Replicate Coverage Matrix`, `HV & Calibration Audit`, and editable `metadata_override.csv`.
 2. **`2. Roughness & Pseudo-AFM`** — Multi-threaded batch metric computation, `Single Treatment (All Weeks)` smooth isotropic Gaussian Pseudo-AFM / Sato ridge grids (`300 DPI` combined PNG + individual week PNG ZIP), all-weeks 2D FFT Radial PSD (`µm⁻¹` + CSV), and `Compare Two Treatments` side-by-side mode.
 3. **`3. Kinetics & Comparison`** — Bounded 4-parameter logistic modeling, objective ranking (`AUC_norm`, Rank #1 = best suppression), `Treatment × Week` heatmap + CSV exports, 2D Morphology PCA ordination, and post-induction ANOVA / Kruskal–Wallis / pairwise hypothesis tests.
-4. **`4. DSC Correlation`** — Downloadable pre-populated DSC template CSV, `.csv`/`.xlsx` upload, Pearson `r` & Spearman `ρ` matrices, and linear scatter plots.
+4. **`4. DSC Correlation`** — Raw TA Instruments `.txt` DSC scanning with automatic baseline detection and 4 core thermodynamic parameters (`T_onset_C`, `T_peak_C`, `FWHM_C`, `Delta_H_J_g`), pre-populated CSV template & `.csv`/`.xlsx` upload, Pooled/Per-Treatment Pearson `r` & Spearman `ρ` matrices, and linear scatter plots.
 5. **`5. Export & Report`** — Preview `analysis_report.md` and `settings.json`, configure replicate scope, and run the two-step **Build Complete Publication Archive** → **Download ZIP** to package 300-DPI Pseudo-AFM, Sato, PSD, PCA, and all 8 kinetic metric plots + CSVs for every discovered treatment.
 
 Synchronized documentation is available both in the sidebar (**SOP & Methodology Docs**) and in [docs/SOP.docx](docs/SOP.docx) and [docs/Methodology.docx](docs/Methodology.docx).

@@ -21,11 +21,8 @@ from core.kinetics import AGGREGATE_METRIC_COLS
 DSC_PARAM_COLS: list[str] = [
     "T_onset_C",
     "T_peak_C",
-    "T_endset_C",
-    "Delta_T_C",
     "FWHM_C",
     "Delta_H_J_g",
-    "High_Melt_gt34C_pct",
 ]
 
 _CTRL_FILE_RE = re.compile(
@@ -228,7 +225,6 @@ def compute_dsc_thermodynamics(
     curve_df: pd.DataFrame,
     base_low: tuple[float, float] = (22.5, 24.5),
     base_high: tuple[float, float] = (38.0, 44.0),
-    beta6_cutoff_C: float = 34.0,
     auto_baseline: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Compute baseline-corrected ASTM E794 melting parameters from a TA DSC curve."""
@@ -268,7 +264,6 @@ def compute_dsc_thermodynamics(
             "is_bimodal": False,
             "T_onset_C": float("nan"),
             "T_peak_C": float("nan"),
-            "T_endset_C": float("nan"),
             "qc_flag": "Incomplete / Aborted Run",
             "qc_status": "Incomplete / Aborted Run",
             "baseline_mode": b_mode,
@@ -294,7 +289,6 @@ def compute_dsc_thermodynamics(
                 "is_bimodal": False,
                 "T_onset_C": float("nan"),
                 "T_peak_C": float("nan"),
-                "T_endset_C": float("nan"),
                 "qc_flag": "Incomplete / Aborted Run",
                 "qc_status": "Incomplete / Aborted Run",
                 "baseline_mode": b_mode,
@@ -321,7 +315,6 @@ def compute_dsc_thermodynamics(
                 "is_bimodal": False,
                 "T_onset_C": float("nan"),
                 "T_peak_C": float("nan"),
-                "T_endset_C": float("nan"),
                 "qc_flag": "Incomplete / Aborted Run",
                 "qc_status": "Incomplete / Aborted Run",
                 "baseline_mode": b_mode,
@@ -387,7 +380,6 @@ def compute_dsc_thermodynamics(
             "is_bimodal": False,
             "T_onset_C": float("nan"),
             "T_peak_C": T_peak_C,
-            "T_endset_C": float("nan"),
             "qc_flag": "No Melting Peak",
             "qc_status": "No Melting Peak",
             "baseline_mode": b_mode,
@@ -428,26 +420,6 @@ def compute_dsc_thermodynamics(
     else:
         T_onset_C = T_lo
 
-    # Extrapolated endset (steepest negative slope in 20%-80% trailing edge)
-    trail_mask = (
-        (idx_all >= i_peak)
-        & (endo_smooth >= 0.20 * peak_val)
-        & (endo_smooth <= 0.80 * peak_val)
-    )
-    if trail_mask.any():
-        trail_indices = np.where(trail_mask)[0]
-        idx_end = int(trail_indices[int(np.argmin(d_endo[trail_indices]))])
-        m_end = float(d_endo[idx_end])
-        if m_end < -1e-9:
-            T_endset_C = float(T_grid[idx_end] - endo_smooth[idx_end] / m_end)
-            T_endset_C = float(np.clip(T_endset_C, T_peak_C, T_hi))
-        else:
-            T_endset_C = float(T_grid[int(trail_indices[-1])])
-    else:
-        T_endset_C = T_hi
-
-    Delta_T_C = max(0.0, T_endset_C - T_onset_C)
-
     # FWHM via half-maximum crossings
     half_val = 0.50 * peak_val
     left_below = np.where(endo_smooth[: i_peak + 1] <= half_val)[0]
@@ -470,17 +442,9 @@ def compute_dsc_thermodynamics(
     FWHM_C = max(0.0, T_right - T_left)
 
     # Melting enthalpy integrated over time in seconds (W/g * s = J/g)
-    T_win = T[in_win]
     t_win = time_s[in_win]
     pos_endo = np.maximum(endo[in_win], 0.0)
     Delta_H_J_g = max(0.0, _trapz(pos_endo, t_win)) if len(t_win) >= 2 else 0.0
-
-    high_win = T_win >= float(beta6_cutoff_C)
-    if int(high_win.sum()) >= 2 and Delta_H_J_g > 1e-12:
-        dh_high = max(0.0, _trapz(pos_endo[high_win], t_win[high_win]))
-        High_Melt_gt34C_pct = float(np.clip((dh_high / Delta_H_J_g) * 100.0, 0.0, 100.0))
-    else:
-        High_Melt_gt34C_pct = 0.0
 
     if auto_baseline:
         needs_review = (
@@ -503,11 +467,8 @@ def compute_dsc_thermodynamics(
     params: dict[str, Any] = {
         "T_onset_C": T_onset_C,
         "T_peak_C": T_peak_C,
-        "T_endset_C": T_endset_C,
-        "Delta_T_C": Delta_T_C,
         "FWHM_C": FWHM_C,
         "Delta_H_J_g": Delta_H_J_g,
-        "High_Melt_gt34C_pct": High_Melt_gt34C_pct,
         "T_lo_used": T_lo,
         "T_hi_used": T_hi,
         "baseline_overshoot_pct": baseline_overshoot_pct,
@@ -531,7 +492,6 @@ def compute_dsc_thermodynamics(
         "is_bimodal": is_bimodal,
         "T_onset_C": T_onset_C,
         "T_peak_C": T_peak_C,
-        "T_endset_C": T_endset_C,
         "qc_flag": qc_flag,
         "qc_status": "OK",
         "baseline_mode": b_mode,
@@ -543,7 +503,6 @@ def scan_and_analyze_dsc_folder(
     dsc_dir: str | Path = "DSC",
     base_low: tuple[float, float] = (22.5, 24.5),
     base_high: tuple[float, float] = (38.0, 44.0),
-    beta6_cutoff_C: float = 34.0,
     auto_baseline: bool = True,
     per_file_overrides: Optional[
         dict[str, tuple[tuple[float, float], tuple[float, float]]]
@@ -575,7 +534,6 @@ def scan_and_analyze_dsc_folder(
                 curve_df,
                 base_low=ov_low,
                 base_high=ov_high,
-                beta6_cutoff_C=beta6_cutoff_C,
                 auto_baseline=False,
             )
             params["baseline_mode"] = "Manual Override"
@@ -585,7 +543,6 @@ def scan_and_analyze_dsc_folder(
                 curve_df,
                 base_low=base_low,
                 base_high=base_high,
-                beta6_cutoff_C=beta6_cutoff_C,
                 auto_baseline=auto_baseline,
             )
             if not auto_baseline:

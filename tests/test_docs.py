@@ -109,11 +109,8 @@ def test_methodology_contains_native_omml_equations() -> None:
         "T_hi_used",
         "T_onset_C",
         "T_peak_C",
-        "T_endset_C",
-        "Delta_T_C",
         "FWHM_C",
         "Delta_H_J_g",
-        "High_Melt_gt34C_pct",
         "baseline_overshoot_pct",
         "is_bimodal",
         "qc_flag",
@@ -122,6 +119,17 @@ def test_methodology_contains_native_omml_equations() -> None:
     ]
     for term in expected_terms:
         assert term in all_text, f"Expected term '{term}' missing from Methodology.docx tables/text"
+
+    for removed_term in ("T_endset_C", "Delta_T_C", "High_Melt_gt34C_pct"):
+        assert removed_term not in all_text, (
+            f"Removed DSC term '{removed_term}' should not appear in Methodology.docx"
+        )
+
+    sop_text = "\n".join(_all_docx_strings(SOP_DOCX_PATH))
+    for removed_sop in ("High-Melt Cutoff", "T_endset"):
+        assert removed_sop not in sop_text, (
+            f"Removed DSC term '{removed_sop}' should not appear in SOP.docx"
+        )
 
     # Verify the DSC summary table appears BEFORE the Section 5 DSC OMML equations in document order
     w_ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -176,7 +184,7 @@ def test_every_omml_equation_followed_by_unbulleted_where_block() -> None:
         if el.tag == f"{{{w_ns}}}p" and _p_text(el) == "Where"
     ]
 
-    assert len(eq_indices) == 30, f"Expected 30 OMML equations, found {len(eq_indices)}"
+    assert len(eq_indices) == 29, f"Expected 29 OMML equations, found {len(eq_indices)}"
     assert len(where_indices) == len(eq_indices), (
         f"Mismatch between OMML equations ({len(eq_indices)}) and 'Where' blocks ({len(where_indices)})"
     )
@@ -263,7 +271,6 @@ def test_quick_md_files_exist_parse_and_match_tabs() -> None:
         r"HF_{\text{base}}",
         r"T_{\text{peak}}",
         r"T_{\text{onset}}",
-        r"T_{\text{endset}}",
         "FWHM",
         r"\Delta H",
         "Overshoot",
@@ -272,6 +279,11 @@ def test_quick_md_files_exist_parse_and_match_tabs() -> None:
     ]
     for ident in required_identifiers:
         assert ident in meth_full, f"Missing identifier '{ident}' in Methodology_quick.md"
+
+    sop_full = "\n".join(sop_sections.values())
+    for forbidden in (r"T_{\text{endset}}", "High_Melt", "High-Melt Cutoff", "F_{>34"):
+        assert forbidden not in meth_full, f"Removed identifier '{forbidden}' still in Methodology_quick.md"
+        assert forbidden not in sop_full, f"Removed identifier '{forbidden}' still in SOP_quick.md"
 
 
 def test_quick_md_files_have_zero_orphan_where_lines() -> None:

@@ -1256,11 +1256,8 @@ def build_methodology_docx(out_path: Path) -> None:
             ["T_lo_used / T_hi_used", "°C", "Automatically detected pre-melting ([21.6, 24.2] °C) and post-melting ([38.0, 45.0] °C) linear baseline anchor temperatures (or manual override values)."],
             ["T_onset_C", "°C", "Extrapolated melting onset temperature (ASTM E794 steepest leading-edge tangent intercept with baseline); indicates initial crystal destabilization / early-melting polymorphs."],
             ["T_peak_C", "°C", "Peak maximum melting temperature of the endothermic transition; reflects the dominant cocoa-butter polymorph (β_V ≈ 32–34 °C, β_VI > 34 °C, softened/migrated fat < 30 °C)."],
-            ["T_endset_C", "°C", "Extrapolated melting completion temperature (ASTM E794 steepest trailing-edge tangent intercept with baseline)."],
-            ["Delta_T_C", "°C", "Total melting range width (T_endset − T_onset); increases with polymorphic heterogeneity and mixed crystal sizes."],
             ["FWHM_C", "°C", "Full Width at Half Maximum of the endothermic peak; robust measure of phase-transition broadening during fat bloom."],
             ["Delta_H_J_g", "J/g", "Specific melting enthalpy obtained by integrating endothermic heat flow over time; measures overall crystalline fat content / crystal lattice integrity."],
-            ["High_Melt_gt34C_pct", "%", "High-melting enthalpy fraction at T ≥ T_cutoff (default 34.0 °C); quantitative proxy for high-melting β_VI polymorph formation."],
             ["baseline_overshoot_pct", "%", "Percentage of points in [T_lo, T_hi] where the curve exceeds the baseline by > 0.004 W/g; automatic baseline QC check."],
             ["is_bimodal", "True/False", "Informational flag indicating ≥ 2 distinct endothermic peaks (≥ 2.0 °C separation, prominence ≥ 15%); indicates multi-polymorph melting (not a QC error)."],
             ["qc_flag", "OK / OK (Manual) / Review Baseline", "Automated baseline quality status separating valid auto/manual baselines from curves needing baseline inspection."],
@@ -1335,7 +1332,7 @@ def build_methodology_docx(out_path: Path) -> None:
             ("endo_smooth(T)", "Gaussian-smoothed endothermic signal (σ = 6 grid points) on the 1000-point uniform temperature grid inside [T_lo, T_hi] [W/g]"),
         ],
     )
-    # 4. Extrapolated Onset & Endset Temperatures (ASTM E794)
+    # 4. Extrapolated Onset Temperature (ASTM E794)
     add_omml_equation(
         doc,
         m_sub(m_var("T"), m_op("onset")),
@@ -1359,39 +1356,9 @@ def build_methodology_docx(out_path: Path) -> None:
             ("d endo_smooth / dT", "first temperature derivative of the smoothed endothermic signal [W/(g·°C)]"),
         ],
     )
+    # 5. Full Width at Half Maximum (FWHM)
     add_omml_equation(
         doc,
-        m_sub(m_var("T"), m_op("endset")),
-        m_op(" = "),
-        m_subsup(m_var("T"), m_op("trail"), m_op("*")),
-        m_op(" − "),
-        m_frac(
-            [m_sub(m_op("endo"), m_op("smooth")), m_delim([m_subsup(m_var("T"), m_op("trail"), m_op("*"))])],
-            m_eval_at(
-                m_frac([m_var("d"), m_op(" "), m_sub(m_op("endo"), m_op("smooth"))], [m_var("dT")]),
-                m_subsup(m_var("T"), m_op("trail"), m_op("*")),
-            ),
-        ),
-        m_op("   [°C]"),
-    )
-    add_where_block(
-        doc,
-        [
-            ("T_endset", "ASTM E794 extrapolated melting completion temperature [°C]"),
-            ("T*_trail", "temperature of steepest falling slope on the trailing peak edge within 20%–80% of peak height [°C]"),
-            ("d endo_smooth / dT", "first temperature derivative of the smoothed endothermic signal [W/(g·°C)]"),
-        ],
-    )
-    # 5. Melting Range Width & FWHM
-    add_omml_equation(
-        doc,
-        m_op("Δ"),
-        m_var("T"),
-        m_op(" = "),
-        m_sub(m_var("T"), m_op("endset")),
-        m_op(" − "),
-        m_sub(m_var("T"), m_op("onset")),
-        m_op(",    "),
         m_op("FWHM"),
         m_op(" = "),
         m_sub(m_var("T"), m_op("right,0.5")),
@@ -1402,12 +1369,11 @@ def build_methodology_docx(out_path: Path) -> None:
     add_where_block(
         doc,
         [
-            ("ΔT", "total extrapolated melting range width [°C]"),
             ("FWHM", "Full Width at Half Maximum of the endothermic melting peak [°C]"),
             ("T_left,0.5, T_right,0.5", "leading and trailing temperatures where endo_smooth(T) crosses 50% of peak height [°C]"),
         ],
     )
-    # 6. Specific Melting Enthalpy (t = time_min * 60 s) & High-Melting Fraction
+    # 6. Specific Melting Enthalpy (t = time_min * 60 s)
     add_omml_equation(
         doc,
         m_op("Δ"),
@@ -1433,22 +1399,13 @@ def build_methodology_docx(out_path: Path) -> None:
                 m_var("dt"),
             ],
         ),
-        m_op("  [J/g],    "),
-        m_sub(m_var("F"), m_op(">34°C")),
-        m_op(" = "),
-        m_frac(
-            m_sub([m_op("Δ"), m_var("H")], m_op("T ≥ 34°C")),
-            [m_op("Δ"), m_var("H")],
-        ),
-        m_op(" × 100%"),
+        m_op("   [J/g]"),
     )
     add_where_block(
         doc,
         [
             ("ΔH", "total specific melting enthalpy integrated over time (W/g × s = J/g) [J/g]"),
             ("t_lo, t_hi", "elapsed timestamps corresponding to T_lo and T_hi, where t = time_min × 60 [s]"),
-            ("F_>34°C", "high-melting enthalpy fraction above cutoff (default 34.0 °C) [%]"),
-            ("ΔH_T≥34°C", "partial specific melting enthalpy integrated for T ≥ 34.0 °C [J/g]"),
         ],
     )
     # 7. Automatic Baseline Overshoot QC Criterion
@@ -1641,9 +1598,9 @@ def build_sop_docx(out_path: Path) -> None:
     _add_bullet(doc, "4. PCA & hypothesis tests: ", "Inspect the 2D Morphology PCA trajectory and adjust Statistical Comparison Min Week (default: 8) to review ANOVA, Kruskal–Wallis, and pairwise p-values.")
 
     _add_h2(doc, "2.4 Tab 4 — 4. DSC Correlation")
-    _add_bullet(doc, "1. Raw TA Instruments DSC Folder (.txt): ", "Place .txt thermograms in data/DSC/ (or DSC/) named <treatment>W<week>r<rep>.txt (and controlr<rep>.txt), set High-Melt Cutoff (default 34.0 °C), and click 🔥 Scan & Analyze Raw DSC Folder—pre-melting and post-melting baselines are detected automatically.")
+    _add_bullet(doc, "1. Raw TA Instruments DSC Folder (.txt): ", "Place .txt thermograms in data/DSC/ (or DSC/) named <treatment>W<week>r<rep>.txt (and controlr<rep>.txt) and click 🔥 Scan & Analyze Raw DSC Folder—pre-melting and post-melting baselines are detected automatically to compute the 4 core DSC thermodynamic parameters (T_onset_C, T_peak_C, FWHM_C, Delta_H_J_g).")
     _add_bullet(doc, "2. Baseline QC & Manual Overrides: ", "Check Baseline QC OK vs Needs Review (flagged only for overshoot > 5%, T_onset < T_lo + 0.05 °C, or ΔH ≤ 1.0 J/g; bimodal peaks are purely informational). Use Apply Override & Recompute for immediate feedback (resolved files become OK (Manual)).")
-    _add_bullet(doc, "3. Thermograms, Evolution & All-Samples Table: ", "Inspect baseline anchor markers in Thermogram QA Inspector, review parameter evolution vs. storage time, and view or download the All Samples — DSC Thermodynamic Parameters table (Weekly Means ± SD or Individual Replicates) directly below as CSV.")
+    _add_bullet(doc, "3. Thermograms, Evolution & All-Samples Table: ", "Inspect baseline anchor markers, T_onset, T_peak, and shaded ΔH in Thermogram QA Inspector, review parameter evolution across the 4 core DSC parameters vs. storage time, and view or download the All Samples — DSC Thermodynamic Parameters table (Weekly Means ± SD or Individual Replicates) directly below as CSV.")
     _add_bullet(doc, "4. Correlate with SEM (Pooled or Per-Treatment): ", "Choose All Treatments (Pooled) or Per-Treatment (Within-Group Aging) while respecting the global sidebar HV-exclusion policy, and inspect Pearson r / Spearman ρ tables, heatmaps, and labeled scatter plots.")
 
     _add_h2(doc, "2.5 Tab 5 — 5. Export & Report")

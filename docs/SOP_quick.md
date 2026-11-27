@@ -25,9 +25,9 @@
 
 ## 4. DSC Correlation
 
-1. Point **Raw TA Instruments DSC Folder (.txt)** to `data/DSC` (`<treatment>W<week>r<rep>.txt`, `controlr<rep>.txt`), confirm **High-Melt Cutoff** (default `34.0 °C`), and click **Scan & Analyze Raw DSC Folder** — baselines are detected automatically.
+1. Point **Raw TA Instruments DSC Folder (.txt)** to `data/DSC` (`<treatment>W<week>r<rep>.txt`, `controlr<rep>.txt`) and click **Scan & Analyze Raw DSC Folder** — baselines are detected automatically to compute the 4 core DSC parameters (`T_onset_C`, `T_peak_C`, `FWHM_C`, `Delta_H_J_g`).
 2. Check **Baseline QC OK** vs **Needs Review** (flagged only for overshoot `> 5%`, `T_onset < T_lo + 0.05 °C`, or `ΔH ≤ 1.0 J/g`; bimodal peaks are informational). Apply per-file overrides only when flagged (`OK (Manual)`).
-3. Inspect **Thermogram QA Inspector**, **DSC Thermodynamic Evolution**, and export **All Samples — DSC Thermodynamic Parameters** (Weekly Means ± SD or Individual Replicates, CSV).
+3. Inspect **Thermogram QA Inspector** (`T_onset`, `T_peak`, baseline anchors, shaded `ΔH`), **DSC Thermodynamic Evolution**, and export **All Samples — DSC Thermodynamic Parameters** (Weekly Means ± SD or Individual Replicates, CSV).
 4. Choose **Correlation Scope** (`All Treatments (Pooled)` vs `Per-Treatment (Within-Group Aging)`) honoring the global HV policy.
 
 ## 5. Export & Report
